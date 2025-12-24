@@ -7,7 +7,7 @@ SERVICE_FILE="$USER_SYSTEMD_DIR/$SERVICE_NAME"
 
 echo "[install] Installing HMI client (Chromium kiosk)..."
 
-# Ensure system is up to date
+# Update package index
 sudo apt update
 
 # Install Chromium if missing
@@ -15,15 +15,14 @@ if ! command -v chromium-browser >/dev/null 2>&1 && ! command -v chromium >/dev/
     sudo apt install -y chromium-browser || sudo apt install -y chromium
 fi
 
-# Ensure systemd user directory exists
+# Ensure user systemd directory exists
 mkdir -p "$USER_SYSTEMD_DIR"
 
-# Create kiosk service
+# Write kiosk service (NO dependency on system services)
 cat > "$SERVICE_FILE" <<'EOF'
 [Unit]
 Description=RaspiPLC Chromium Kiosk
-After=network.target raspiplc-ui.service
-Requires=raspiplc-ui.service
+After=network.target
 
 [Service]
 Type=simple
@@ -59,4 +58,5 @@ sudo loginctl enable-linger "$USER"
 
 echo "[install] HMI client installed"
 echo "[install] Start kiosk with: systemctl --user start $SERVICE_NAME"
-echo "[install] Reboot to test full auto-launch"
+echo "[install] Reboot to verify auto-launch"
+

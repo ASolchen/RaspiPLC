@@ -1,0 +1,13 @@
+[Unit]
+Description=RaspiPLC Shared Memory Initializer
+DefaultDependencies=no
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/env python3 /opt/raspiplc/shm-core/shm_init.py
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

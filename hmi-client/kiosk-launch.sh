@@ -15,10 +15,12 @@ echo "[kiosk] UI available, launching Chromium"
 exec "$CHROMIUM_BIN" \
     "$URL" \
     --kiosk \
+    --password-store=basic \
+    --disable-gpu \
+    --disable-software-rasterizer \
+    --disable-features=UseOzonePlatform \
+    --ozone-platform=x11 \
     --noerrdialogs \
     --disable-infobars \
-    --disable-session-crashed-bubble \
-    --disable-features=TranslateUI \
-    --disable-pinch \
-    --overscroll-history-navigation=0
+    --disable-session-crashed-bubble
 

@@ -15,7 +15,9 @@ echo "[kiosk] UI available, launching Chromium"
 exec "$CHROMIUM_BIN" \
     "$URL" \
     --kiosk \
+    --user-data-dir=/tmp/chromium-kiosk \
     --password-store=basic \
+    --disable-features=PasswordManager,PasswordImport \
     --disable-gpu \
     --disable-software-rasterizer \
     --disable-features=UseOzonePlatform \
@@ -23,4 +25,3 @@ exec "$CHROMIUM_BIN" \
     --noerrdialogs \
     --disable-infobars \
     --disable-session-crashed-bubble
-

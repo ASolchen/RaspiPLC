@@ -8,6 +8,7 @@ INSTALL_DIR="/opt/raspiplc/hmi-client"
 
 echo "[install] Installing HMI client (Chromium kiosk)..."
 
+# Update package index
 sudo apt update
 
 # Install Chromium if missing
@@ -18,10 +19,10 @@ fi
 CHROMIUM_BIN="$(command -v chromium)"
 echo "[install] Using Chromium binary: $CHROMIUM_BIN"
 
-# Install launcher
-mkdir -p "$INSTALL_DIR"
-cp kiosk-launch.sh "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/kiosk-launch.sh"
+# Install kiosk launcher (system-owned path)
+sudo mkdir -p "$INSTALL_DIR"
+sudo cp kiosk-launch.sh "$INSTALL_DIR/"
+sudo chmod +x "$INSTALL_DIR/kiosk-launch.sh"
 
 # Ensure user systemd directory exists
 mkdir -p "$USER_SYSTEMD_DIR"

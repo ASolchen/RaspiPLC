@@ -19,8 +19,8 @@ fi
 systemctl --user daemon-reexec
 systemctl --user daemon-reload
 
-# Remove installed files
-rm -rf "$INSTALL_DIR"
+# Remove installed launcher and directory (system-owned path)
+sudo rm -rf "$INSTALL_DIR"
 
 # Remove Chromium (handle both possible package names)
 if dpkg -l | grep -q '^ii.*chromium-browser'; then

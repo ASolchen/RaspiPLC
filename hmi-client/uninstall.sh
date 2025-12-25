@@ -4,6 +4,7 @@ set -e
 SERVICE_NAME="raspiplc-kiosk.service"
 USER_SYSTEMD_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$USER_SYSTEMD_DIR/$SERVICE_NAME"
+INSTALL_DIR="/opt/raspiplc/hmi-client"
 
 echo "[uninstall] Removing HMI client..."
 
@@ -18,10 +19,13 @@ fi
 systemctl --user daemon-reexec
 systemctl --user daemon-reload
 
-# Remove Chromium (optional but intentional)
-if command -v chromium-browser >/dev/null 2>&1; then
+# Remove installed files
+rm -rf "$INSTALL_DIR"
+
+# Remove Chromium (handle both possible package names)
+if dpkg -l | grep -q '^ii.*chromium-browser'; then
     sudo apt remove -y chromium-browser
-elif command -v chromium >/dev/null 2>&1; then
+elif dpkg -l | grep -q '^ii.*chromium'; then
     sudo apt remove -y chromium
 fi
 

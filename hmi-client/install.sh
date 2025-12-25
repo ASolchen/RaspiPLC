@@ -4,38 +4,38 @@ set -e
 SERVICE_NAME="raspiplc-kiosk.service"
 USER_SYSTEMD_DIR="$HOME/.config/systemd/user"
 SERVICE_FILE="$USER_SYSTEMD_DIR/$SERVICE_NAME"
+INSTALL_DIR="/opt/raspiplc/hmi-client"
 
 echo "[install] Installing HMI client (Chromium kiosk)..."
 
-# Update package index
 sudo apt update
 
 # Install Chromium if missing
-if ! command -v chromium-browser >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then
-    sudo apt install -y chromium-browser || sudo apt install -y chromium
+if ! command -v chromium >/dev/null 2>&1; then
+    sudo apt install -y chromium
 fi
+
+CHROMIUM_BIN="$(command -v chromium)"
+echo "[install] Using Chromium binary: $CHROMIUM_BIN"
+
+# Install launcher
+mkdir -p "$INSTALL_DIR"
+cp kiosk-launch.sh "$INSTALL_DIR/"
+chmod +x "$INSTALL_DIR/kiosk-launch.sh"
 
 # Ensure user systemd directory exists
 mkdir -p "$USER_SYSTEMD_DIR"
 
-# Write kiosk service (NO dependency on system services)
-cat > "$SERVICE_FILE" <<'EOF'
+# Write user systemd service
+cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=RaspiPLC Chromium Kiosk
-After=network.target
+After=graphical-session.target
+Wants=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/chromium-browser \
-    http://localhost:5000 \
-    --kiosk \
-    --noerrdialogs \
-    --disable-infobars \
-    --disable-session-crashed-bubble \
-    --disable-features=TranslateUI \
-    --disable-pinch \
-    --overscroll-history-navigation=0
-
+ExecStart=/opt/raspiplc/hmi-client/kiosk-launch.sh
 Restart=always
 RestartSec=3
 

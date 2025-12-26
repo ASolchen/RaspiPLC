@@ -94,13 +94,24 @@
             border-top: 2px solid #999;
         }
     </style>
+
+    <!-- ✅ Splash logic runs independently of Socket.IO -->
+    <script>
+    document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(() => {
+            const splash = document.getElementById("splash");
+            const app = document.getElementById("app");
+            if (splash) splash.style.display = "none";
+            if (app) app.style.display = "flex";
+        }, 1500);
+    });
+    </script>
 </head>
 
 <body>
 
 <!-- Splash screen -->
 <div id="splash">
-    <!-- Simple SVG logo spoof -->
     <svg width="500" height="100" viewBox="0 0 500 100">
         <rect x="0" y="10" width="500" height="60" rx="8" fill="#1f4fa3"/>
         <text x="20" y="52" fill="white" font-size="28" font-weight="bold">
@@ -115,7 +126,6 @@
 <!-- Main app -->
 <div id="app">
     <div class="header">
-        <!-- AB-style spoof logo -->
         <svg width="120" height="36" viewBox="0 0 120 36">
             <rect x="0" y="4" width="120" height="28" rx="4" fill="white"/>
             <text x="8" y="25" fill="#1f4fa3" font-size="16" font-weight="bold">
@@ -142,36 +152,47 @@
             <p>Heater 2: 22%</p>
         </div>
     </div>
+
     <a href="/maintenance">
         <button style="font-size:16px;">⚙ Settings</button>
     </a>
+
     <span id="time">--:--:--.---</span>
+
     <div class="footer">
         Poor-manView 1000 &nbsp;|&nbsp; Not Rockwell Automation 😄
     </div>
 </div>
-<!-- Served locally by Flask-SocketIO -->
-<script src="/socket.io/socket.io.js"></script>
-<script>
-    const socket = io();
 
-    socket.on('connect', () => {
-        console.log("Connected");
+<!-- Socket.IO loaded AFTER UI is visible -->
+<script src="/socket.io/socket.io.js" defer></script>
+<script defer>
+document.addEventListener("DOMContentLoaded", () => {
+    if (typeof io === "undefined") {
+        console.warn("Socket.IO not available");
+        return;
+    }
+
+    const socket = io({
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: Infinity
     });
 
-    socket.on('time_update', (data) => {
-        document.getElementById('time').textContent = data.time;
+    socket.on("connect", () => {
+        console.log("Socket.IO connected");
     });
-    socket.on('disconnect', () => {
-        console.log("Disconnected");
+
+    socket.on("time_update", (data) => {
+        const t = document.getElementById("time");
+        if (t) t.textContent = data.time;
     });
-    // Fake splash delay (industrial nostalgia)
-    setTimeout(() => {
-        document.getElementById('splash').style.display = 'none';
-        document.getElementById('app').style.display = 'flex';
-    }, 1500);
+
+    socket.on("disconnect", () => {
+        console.warn("Socket.IO disconnected");
+    });
+});
 </script>
 
 </body>
 </html>
-

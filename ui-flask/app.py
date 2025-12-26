@@ -52,8 +52,7 @@ def maintenance():
 
 @app.route("/update", methods=["POST"])
 def update_project():
-    repo_dir = os.path.expanduser("~/RaspiPLC")
-
+    repo_dir = "/home/engineer/RaspiPLC"
     try:
         result = subprocess.run(
             ["git", "pull"],

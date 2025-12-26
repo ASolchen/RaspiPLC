@@ -164,34 +164,34 @@
     </div>
 </div>
 
-<!-- Socket.IO loaded AFTER UI is visible -->
-<script src="/socket.io/socket.io.js" defer></script>
+<script src="/static/socket.io.min.js" defer></script>
 <script defer>
-document.addEventListener("DOMContentLoaded", () => {
+    // At this point:
+    // - DOM is ready
+    // - socket.io.min.js is already loaded
+
     if (typeof io === "undefined") {
         console.warn("Socket.IO not available");
-        return;
+    } else {
+        const socket = io({
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: Infinity
+        });
+
+        socket.on("connect", () => {
+            console.log("Socket.IO connected");
+        });
+
+        socket.on("time_update", (data) => {
+            const t = document.getElementById("time");
+            if (t) t.textContent = data.time;
+        });
+
+        socket.on("disconnect", () => {
+            console.warn("Socket.IO disconnected");
+        });
     }
-
-    const socket = io({
-        reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionAttempts: Infinity
-    });
-
-    socket.on("connect", () => {
-        console.log("Socket.IO connected");
-    });
-
-    socket.on("time_update", (data) => {
-        const t = document.getElementById("time");
-        if (t) t.textContent = data.time;
-    });
-
-    socket.on("disconnect", () => {
-        console.warn("Socket.IO disconnected");
-    });
-});
 </script>
 
 </body>

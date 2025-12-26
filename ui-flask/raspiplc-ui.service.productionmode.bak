@@ -5,10 +5,14 @@ Requires=raspiplc-shm-init.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/engineer/RaspiPLC/ui-flask
-ExecStart=/usr/bin/env python3 /home/engineer/RaspiPLC/ui-flask/app.py
+WorkingDirectory=/opt/raspiplc/ui-flask
+ExecStart=/usr/bin/env python3 /opt/raspiplc/ui-flask/app.py
 Restart=always
 RestartSec=2
+
+# Run as root for now (simplest)
+# User=raspiplc
+# Group=raspiplc
 
 [Install]
 WantedBy=multi-user.target

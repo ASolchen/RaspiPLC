@@ -1,17 +1,11 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template
-import mmap
-import os
-from flask import Flask, render_template
+from flask import Flask, render_template, redirect, url_for
 from flask_socketio import SocketIO
+import mmap
 import time
-import threading
-
-from pathlib import Path
-from flask import redirect, url_for
 import subprocess
-import os
+from pathlib import Path
 
 # Hard-coded for now; later imported from shm_layout
 SHM_FILES = {
@@ -23,6 +17,10 @@ SHM_FILES = {
 }
 
 app = Flask(__name__)
+app.config["SECRET_KEY"] = "dev"
+
+# ✅ THIS WAS MISSING
+socketio = SocketIO(app, async_mode="eventlet")
 
 
 def read_region(path, length=64):
@@ -36,18 +34,19 @@ def read_region(path, length=64):
         mm.close()
         return data
 
+
 def time_emitter():
     while True:
         now = time.time()
-        # seconds → human readable with ms
-        timestamp = time.strftime('%H:%M:%S', time.localtime(now))
+        timestamp = time.strftime("%H:%M:%S", time.localtime(now))
         ms = int((now % 1) * 1000)
-        socketio.emit('time_update', {
-            'time': f"{timestamp}.{ms:03d}"
-        })
+
+        socketio.emit(
+            "time_update",
+            {"time": f"{timestamp}.{ms:03d}"}
+        )
+
         socketio.sleep(0.5)  # 500 ms
-
-
 
 
 @app.route("/")
@@ -63,9 +62,11 @@ def index():
 
     return render_template("index.html", regions=regions)
 
+
 @app.route("/maintenance")
 def maintenance():
     return render_template("maintenance.html")
+
 
 @app.route("/update", methods=["POST"])
 def update_project():
@@ -76,25 +77,28 @@ def update_project():
             cwd=repo_dir,
             capture_output=True,
             text=True,
-            timeout=10
+            timeout=10,
         )
         output = result.stdout + result.stderr
     except Exception as e:
         output = str(e)
 
-    return render_template(
-        "maintenance.html",
-        output=output
-    )
+    return render_template("maintenance.html", output=output)
 
-@socketio.on('connect')
+
+@socketio.on("connect")
 def on_connect():
     print("Client connected")
 
-@socketio.on('disconnect')
+
+@socketio.on("disconnect")
 def on_disconnect():
     print("Client disconnected")
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
 
+if __name__ == "__main__":
+    # ✅ Start background task AFTER socketio exists
+    socketio.start_background_task(time_emitter)
+
+    # ✅ IMPORTANT: use socketio.run, not app.run
+    socketio.run(app, host="0.0.0.0", port=5000)

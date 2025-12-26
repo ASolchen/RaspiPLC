@@ -19,8 +19,8 @@ SHM_FILES = {
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "dev"
 
-# ✅ THIS WAS MISSING
-socketio = SocketIO(app, async_mode="eventlet")
+# ✅ Python 3.13–safe async mode
+socketio = SocketIO(app, async_mode="threading")
 
 
 def read_region(path, length=64):
@@ -46,7 +46,8 @@ def time_emitter():
             {"time": f"{timestamp}.{ms:03d}"}
         )
 
-        socketio.sleep(0.5)  # 500 ms
+        # ✅ threading-safe sleep
+        time.sleep(0.5)
 
 
 @app.route("/")
@@ -97,8 +98,5 @@ def on_disconnect():
 
 
 if __name__ == "__main__":
-    # ✅ Start background task AFTER socketio exists
     socketio.start_background_task(time_emitter)
-
-    # ✅ IMPORTANT: use socketio.run, not app.run
     socketio.run(app, host="0.0.0.0", port=5000)

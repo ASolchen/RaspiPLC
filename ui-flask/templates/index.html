@@ -1,41 +1,159 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>RaspiPLC UI</title>
+    <meta charset="UTF-8">
+    <title>Poor-manView 1000</title>
+    <meta name="viewport" content="width=800, height=480, user-scalable=no">
+
     <style>
-        body {
-            font-family: monospace;
-            background-color: #111;
-            color: #0f0;
-            padding: 20px;
+        /* ----- Global reset ----- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, Helvetica, sans-serif;
         }
-        h1 {
-            color: #6cf;
+
+        html, body {
+            width: 800px;
+            height: 480px;
+            background-color: #e6e6e6;
+            overflow: hidden;
         }
-        .region {
-            margin-bottom: 20px;
+
+        /* ----- Splash screen ----- */
+        #splash {
+            position: absolute;
+            width: 800px;
+            height: 480px;
+            background-color: #dcdcdc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
         }
-        .label {
+
+        /* ----- Main container ----- */
+        #app {
+            width: 800px;
+            height: 480px;
+            display: none;
+            flex-direction: column;
+        }
+
+        /* ----- PanelView-style header ----- */
+        .header {
+            height: 60px;
+            background: linear-gradient(#1f4fa3, #163b7a);
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            border-bottom: 3px solid #999;
+        }
+
+        .header svg {
+            height: 36px;
+        }
+
+        .header-title {
+            margin-left: auto;
             font-weight: bold;
+            font-size: 20px;
+            letter-spacing: 0.5px;
         }
-        pre {
-            background: #000;
-            padding: 10px;
-            overflow-x: auto;
+
+        /* ----- Content area ----- */
+        .content {
+            flex: 1;
+            padding: 16px;
+            background-color: #f2f2f2;
+        }
+
+        .card {
+            background-color: white;
+            border: 2px solid #999;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        /* ----- Footer ----- */
+        .footer {
+            height: 30px;
+            background-color: #c0c0c0;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            border-top: 2px solid #999;
         }
     </style>
 </head>
+
 <body>
 
-<h1>RaspiPLC – Shared Memory View</h1>
-
-{% for name, data in regions.items() %}
-<div class="region">
-    <div class="label">{{ name }}</div>
-    <pre>{{ data }}</pre>
+<!-- Splash screen -->
+<div id="splash">
+    <!-- Simple SVG logo spoof -->
+    <svg width="500" height="100" viewBox="0 0 500 100">
+        <rect x="0" y="10" width="500" height="60" rx="8" fill="#1f4fa3"/>
+        <text x="20" y="52" fill="white" font-size="28" font-weight="bold">
+            Poor-manView
+        </text>
+        <text x="360" y="52" fill="white" font-size="22" font-weight="bold">
+            1000
+        </text>
+    </svg>
 </div>
-{% endfor %}
+
+<!-- Main app -->
+<div id="app">
+    <div class="header">
+        <!-- AB-style spoof logo -->
+        <svg width="120" height="36" viewBox="0 0 120 36">
+            <rect x="0" y="4" width="120" height="28" rx="4" fill="white"/>
+            <text x="8" y="25" fill="#1f4fa3" font-size="16" font-weight="bold">
+                PMV
+            </text>
+        </svg>
+
+        <div class="header-title">Poor-manView 1000</div>
+    </div>
+
+    <div class="content">
+        <div class="card">
+            <h2>System Status</h2>
+            <p>Runtime: OK</p>
+            <p>Shared Memory: OK</p>
+            <p>UI: Connected</p>
+        </div>
+
+        <div class="card">
+            <h2>Demo Data</h2>
+            <p>Temp: 72.4 °F</p>
+            <p>Pressure: 123 PSI</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        Poor-manView 1000 &nbsp;|&nbsp; Not Rockwell Automation 😄
+    </div>
+</div>
+
+<script>
+    // Fake splash delay (industrial nostalgia)
+    setTimeout(() => {
+        document.getElementById('splash').style.display = 'none';
+        document.getElementById('app').style.display = 'flex';
+    }, 1500);
+</script>
 
 </body>
 </html>
+

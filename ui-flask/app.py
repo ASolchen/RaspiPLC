@@ -3,6 +3,10 @@
 from flask import Flask, render_template
 import mmap
 import os
+from flask import Flask, render_template
+from flask_socketio import SocketIO
+import time
+import threading
 
 from pathlib import Path
 from flask import redirect, url_for
@@ -31,6 +35,19 @@ def read_region(path, length=64):
         data = mm[:length]
         mm.close()
         return data
+
+def time_emitter():
+    while True:
+        now = time.time()
+        # seconds → human readable with ms
+        timestamp = time.strftime('%H:%M:%S', time.localtime(now))
+        ms = int((now % 1) * 1000)
+        socketio.emit('time_update', {
+            'time': f"{timestamp}.{ms:03d}"
+        })
+        socketio.sleep(0.5)  # 500 ms
+
+
 
 
 @app.route("/")
@@ -70,6 +87,13 @@ def update_project():
         output=output
     )
 
+@socketio.on('connect')
+def on_connect():
+    print("Client connected")
+
+@socketio.on('disconnect')
+def on_disconnect():
+    print("Client disconnected")
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

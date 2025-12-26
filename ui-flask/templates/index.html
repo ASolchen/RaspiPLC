@@ -145,13 +145,26 @@
     <a href="/maintenance">
         <button style="font-size:16px;">⚙ Settings</button>
     </a>
-
+    <span id="time">--:--:--.---</span>
     <div class="footer">
         Poor-manView 1000 &nbsp;|&nbsp; Not Rockwell Automation 😄
     </div>
 </div>
-
+<!-- Served locally by Flask-SocketIO -->
+<script src="/socket.io/socket.io.js"></script>
 <script>
+    const socket = io();
+
+    socket.on('connect', () => {
+        console.log("Connected");
+    });
+
+    socket.on('time_update', (data) => {
+        document.getElementById('time').textContent = data.time;
+    });
+    socket.on('disconnect', () => {
+        console.log("Disconnected");
+    });
     // Fake splash delay (industrial nostalgia)
     setTimeout(() => {
         document.getElementById('splash').style.display = 'none';

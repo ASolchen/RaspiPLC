@@ -5,6 +5,9 @@ import mmap
 import os
 
 from pathlib import Path
+from flask import redirect, url_for
+import subprocess
+import os
 
 # Hard-coded for now; later imported from shm_layout
 SHM_FILES = {
@@ -42,6 +45,31 @@ def index():
             regions[name] = data.hex(" ")
 
     return render_template("index.html", regions=regions)
+
+@app.route("/maintenance")
+def maintenance():
+    return render_template("maintenance.html")
+
+@app.route("/update", methods=["POST"])
+def update_project():
+    repo_dir = os.path.expanduser("~/RaspiPLC")
+
+    try:
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=repo_dir,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+        output = result.stdout + result.stderr
+    except Exception as e:
+        output = str(e)
+
+    return render_template(
+        "maintenance.html",
+        output=output
+    )
 
 
 if __name__ == "__main__":

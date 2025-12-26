@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Maintenance</title>
+    <meta name="viewport" content="width=800, height=480">
+    <style>
+        body {
+            font-family: Arial;
+            background: #f2f2f2;
+            padding: 20px;
+        }
+
+        button {
+            font-size: 20px;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+        }
+
+        pre {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            height: 200px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Maintenance</h1>
+
+<form method="POST" action="/update">
+    <button type="submit">Update Project</button>
+</form>
+
+{% if output %}
+<h3>Output</h3>
+<pre>{{ output }}</pre>
+{% endif %}
+
+<a href="/">← Back to HMI</a>
+
+</body>
+</html>

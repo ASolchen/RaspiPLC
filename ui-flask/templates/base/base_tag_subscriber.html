@@ -5,26 +5,16 @@
 <script src="/static/socket.io.min.js"></script>
 {% endblock %}
 
-{% block body %}
-{{ super() }}
-
+{% block tag_runtime %}
 <script>
-/*
- * Tag Runtime – Phase 2
- * --------------------
- * Adds explicit tag list subscription
- *
- * Page may define:
- *   window.TAG_SUBSCRIPTIONS = [ "tag.a", "tag.b" ]
- *   window.TAG_UPDATE_RATE_MS = <number>   (optional)
- */
+console.log("=== base_tag_subscriber loaded ===");
 
 (function () {
-
     if (typeof io === "undefined") {
-        console.error("Tag runtime failed: Socket.IO not available");
+        console.error("Socket.IO not available");
         return;
     }
+
     console.log("Connecting to /tags namespace");
     const tagSocket = io("/tags");
 
@@ -33,17 +23,9 @@
         connected: false,
         lastUpdateTs: null,
 
-        write: function (tag, value) {
-            if (!this.connected) {
-                console.warn("[TagRuntime] write ignored (not connected)");
-                return;
-            }
-
-            tagSocket.emit("tag_write", {
-                tag: tag,
-                value: value,
-                ts: Date.now() / 1000
-            });
+        write(tag, value) {
+            if (!this.connected) return;
+            tagSocket.emit("tag_write", { tag, value, ts: Date.now() / 1000 });
         }
     };
 
@@ -51,7 +33,6 @@
         console.log("[TagRuntime] connected");
         TagRuntime.connected = true;
 
-        // ---- NEW PART ----
         const payload = {
             tags: Array.isArray(window.TAG_SUBSCRIPTIONS)
                 ? window.TAG_SUBSCRIPTIONS
@@ -62,30 +43,19 @@
             payload.rate_ms = window.TAG_UPDATE_RATE_MS;
         }
 
+        console.log("[TagRuntime] subscribe", payload);
         tagSocket.emit("subscribe", payload);
-        // ------------------
     });
 
     tagSocket.on("disconnect", () => {
-        console.warn("[TagRuntime] disconnected");
         TagRuntime.connected = false;
     });
 
-    tagSocket.on("tag_update", (payload) => {
-        if (!payload || !payload.tags) {
-            console.warn("[TagRuntime] malformed update", payload);
-            return;
-        }
-
-        TagRuntime.lastUpdateTs = payload.ts || null;
-
-        if (typeof window.onTagUpdate === "function") {
+    tagSocket.on("tag_update", payload => {
+        if (window.onTagUpdate) {
             window.onTagUpdate(payload.tags, payload.ts);
         }
     });
-
 })();
 </script>
-
-{% block tag_runtime_scripts %}{% endblock %}
 {% endblock %}

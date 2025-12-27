@@ -1,0 +1,28 @@
+{% extends "layouts/local_hmi.html" %}
+
+{% block title %}Status{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>System Status</h2>
+    <p>Smoker Temp: <span id="smoker-temp">--</span></p>
+    <p>Meat Temp: <span id="meat-temp">--</span></p>
+    <p>Heater: <span id="heater-pct">--</span>%</p>
+</div>
+{% endblock %}
+
+{% block tag_runtime_scripts %}
+<script>
+window.onTagUpdate = function(tags, ts) {
+    if (tags["smoker.temp"] !== undefined) {
+        document.getElementById("smoker-temp").textContent = tags["smoker.temp"];
+    }
+    if (tags["meat.temp"] !== undefined) {
+        document.getElementById("meat-temp").textContent = tags["meat.temp"];
+    }
+    if (tags["heater.1.pct"] !== undefined) {
+        document.getElementById("heater-pct").textContent = tags["heater.1.pct"];
+    }
+};
+</script>
+{% endblock %}

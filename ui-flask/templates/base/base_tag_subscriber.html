@@ -1,0 +1,100 @@
+{% extends "base/base.html" %}
+
+{% block head %}
+{{ super() }}
+<script src="/static/socket.io.min.js"></script>
+{% endblock %}
+
+{% block body %}
+{{ super() }}
+
+<script>
+/*
+ * Tag Runtime – Phase 1 (Read + Write)
+ * -----------------------------------
+ * Responsibilities:
+ *  - Establish connection
+ *  - Subscribe to tag updates
+ *  - Receive update payloads
+ *  - Provide explicit write API
+ *
+ * DOES NOT:
+ *  - Scan DOM
+ *  - Interpret tags
+ *  - Assume write success
+ */
+
+(function () {
+
+    if (typeof io === "undefined") {
+        console.error("Tag runtime failed: Socket.IO not available");
+        return;
+    }
+
+    const tagSocket = io("/tags");
+
+    window.TagRuntime = {
+        socket: tagSocket,
+        connected: false,
+        lastUpdateTs: null,
+
+        /*
+         * Write a tag value to backend
+         *
+         * @param {string} tag
+         * @param {*} value
+         * @param {object} [options]
+         */
+        write: function (tag, value, options = {}) {
+            if (!TagRuntime.connected) {
+                console.warn("[TagRuntime] write failed (not connected)", tag);
+                return;
+            }
+
+            const payload = {
+                tag: tag,
+                value: value,
+                source: options.source || "browser",
+                ts: Date.now() / 1000
+            };
+
+            tagSocket.emit("tag_write", payload);
+        }
+    };
+
+    tagSocket.on("connect", () => {
+        console.log("[TagRuntime] connected");
+        TagRuntime.connected = true;
+
+        tagSocket.emit("subscribe", {
+            client: "browser",
+            mode: "readwrite"
+        });
+    });
+
+    tagSocket.on("disconnect", () => {
+        console.warn("[TagRuntime] disconnected");
+        TagRuntime.connected = false;
+    });
+
+    /*
+     * Read path
+     */
+    tagSocket.on("tag_update", (payload) => {
+        if (!payload || !payload.tags) {
+            console.warn("[TagRuntime] malformed update", payload);
+            return;
+        }
+
+        TagRuntime.lastUpdateTs = payload.ts || null;
+
+        if (typeof window.onTagUpdate === "function") {
+            window.onTagUpdate(payload.tags, payload.ts);
+        }
+    });
+
+})();
+</script>
+
+{% block tag_runtime_scripts %}{% endblock %}
+{% endblock %}

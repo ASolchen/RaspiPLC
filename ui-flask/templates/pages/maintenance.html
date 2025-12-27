@@ -1,0 +1,15 @@
+{% extends "layouts/local_hmi.html" %}
+
+{% block title %}Maintenance{% endblock %}
+
+{% block content %}
+<h2>Maintenance</h2>
+
+<form method="post" action="/update">
+    <button type="submit">Update Project</button>
+</form>
+
+{% if output %}
+<pre>{{ output }}</pre>
+{% endif %}
+{% endblock %}

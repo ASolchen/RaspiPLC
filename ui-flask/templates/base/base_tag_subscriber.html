@@ -25,7 +25,7 @@
         console.error("Tag runtime failed: Socket.IO not available");
         return;
     }
-
+    console.log("Connecting to /tags namespace");
     const tagSocket = io("/tags");
 
     window.TagRuntime = {

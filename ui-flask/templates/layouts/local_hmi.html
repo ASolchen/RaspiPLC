@@ -1,6 +1,108 @@
 {% extends "base/base_tag_subscriber.html" %}
 
+{% block head %}
+{{ super() }}
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: Arial, Helvetica, sans-serif;
+    }
+
+    html, body {
+        width: 800px;
+        height: 480px;
+        background-color: #e6e6e6;
+        overflow: hidden;
+    }
+
+    #app {
+        width: 800px;
+        height: 480px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    header {
+        height: 40px;
+        background: linear-gradient(#1f4fa3, #163b7a);
+        color: white;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        border-bottom: 3px solid #999;
+    }
+
+    header .title {
+        margin-left: auto;
+        font-weight: bold;
+        font-size: 20px;
+    }
+
+    main {
+        flex: 1;
+        padding: 16px;
+        background-color: #f2f2f2;
+        overflow: hidden;
+    }
+
+    .card {
+        background-color: white;
+        border: 2px solid #999;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .card h2 {
+        font-size: 18px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid #ccc;
+    }
+
+    footer {
+        height: 30px;
+        background-color: #c0c0c0;
+        font-size: 12px;
+        display: flex;
+        align-items: center;
+        padding: 0 10px;
+        border-top: 2px solid #999;
+    }
+
+    footer a {
+        margin-right: 12px;
+        text-decoration: none;
+        color: black;
+        font-weight: bold;
+    }
+
+    #comms {
+        margin-left: auto;
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
 {% block body %}
-    {% block content %}{% endblock %}
-    {{ super() }}
+<div id="app">
+
+    <header>
+        <div>Poor-manView</div>
+        <div class="title">1000</div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <a href="/">Status</a>
+        <a href="/maintenance">Maintenance</a>
+        <span id="comms">●</span>
+    </footer>
+
+</div>
+
+{{ super() }}
 {% endblock %}

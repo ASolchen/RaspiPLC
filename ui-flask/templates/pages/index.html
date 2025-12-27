@@ -11,18 +11,29 @@
 </div>
 {% endblock %}
 
-{% block tag_tag_runtime_scripts %}
+{% block tag_runtime_scripts %}
 <script>
-window.onTagUpdate = function(tags, ts) {
-    if (tags["smoker.temp"] !== undefined) {
-        document.getElementById("smoker-temp").textContent = tags["smoker.temp"];
-    }
-    if (tags["meat.temp"] !== undefined) {
-        document.getElementById("meat-temp").textContent = tags["meat.temp"];
-    }
-    if (tags["heater.1.pct"] !== undefined) {
-        document.getElementById("heater-pct").textContent = tags["heater.1.pct"];
-    }
-};
+    // ✅ Declare what tags this page needs
+    window.TAG_SUBSCRIPTIONS = [
+        "smoker.temp",
+        "meat.temp",
+        "heater.1.pct"
+    ];
+
+    // ✅ Handle incoming updates
+    window.onTagUpdate = function(tags, ts) {
+        if (tags["smoker.temp"] !== undefined) {
+            document.getElementById("smoker-temp").textContent =
+                tags["smoker.temp"];
+        }
+        if (tags["meat.temp"] !== undefined) {
+            document.getElementById("meat-temp").textContent =
+                tags["meat.temp"];
+        }
+        if (tags["heater.1.pct"] !== undefined) {
+            document.getElementById("heater-pct").textContent =
+                tags["heater.1.pct"];
+        }
+    };
 </script>
 {% endblock %}

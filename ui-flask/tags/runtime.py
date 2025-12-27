@@ -1,69 +1,41 @@
-from flask_socketio import Namespace, emit
+from flask_socketio import Namespace
+from flask import request
 import time
 
 DEFAULT_UPDATE_RATE_MS = 200
 
+# Per-client subscription registry
+_clients = {}
+
 
 class TagNamespace(Namespace):
-    def __init__(self, namespace):
-        super().__init__(namespace)
-        self.subscribed_tags = set()
-        self.rate_ms = DEFAULT_UPDATE_RATE_MS
-        self.last_emit = 0
-
     def on_connect(self):
-        print("[tags] client connected")
+        sid = request.sid
+        _clients[sid] = {
+            "tags": set(),
+            "rate_ms": DEFAULT_UPDATE_RATE_MS,
+            "last_emit": 0,
+        }
+        print(f"[tags] client connected: {sid}")
 
     def on_disconnect(self):
-        print("[tags] client disconnected")
+        sid = request.sid
+        _clients.pop(sid, None)
+        print(f"[tags] client disconnected: {sid}")
 
     def on_subscribe(self, data):
-        """
-        Expected payload:
-        {
-            tags: ["tag.a", "tag.b"],
-            rate_ms: 500   # optional
-        }
-        """
-        tags = data.get("tags", [])
-        if isinstance(tags, list):
-            self.subscribed_tags = set(tags)
-        else:
-            self.subscribed_tags = set()
+        sid = request.sid
 
-        self.rate_ms = data.get("rate_ms", DEFAULT_UPDATE_RATE_MS)
+        tags = data.get("tags", [])
+        rate_ms = data.get("rate_ms", DEFAULT_UPDATE_RATE_MS)
+
+        _clients[sid]["tags"] = set(tags)
+        _clients[sid]["rate_ms"] = rate_ms
 
         print(
-            f"[tags] subscribe tags={self.subscribed_tags} "
-            f"rate_ms={self.rate_ms}"
-        )
-
-    def maybe_emit(self, all_tags):
-        """
-        Emit filtered tag updates based on subscription and rate.
-        Called by the mock source.
-        """
-        now = time.time() * 1000
-        if now - self.last_emit < self.rate_ms:
-            return
-
-        self.last_emit = now
-
-        if self.subscribed_tags:
-            filtered = {
-                k: v for k, v in all_tags.items()
-                if k in self.subscribed_tags
-            }
-        else:
-            filtered = all_tags
-
-        emit(
-            "tag_update",
-            {
-                "tags": filtered,
-                "ts": time.time()
-            },
-            namespace="/tags"
+            f"[tags] subscribe sid={sid} "
+            f"tags={_clients[sid]['tags']} "
+            f"rate_ms={rate_ms}"
         )
 
     def on_tag_write(self, data):
@@ -71,17 +43,35 @@ class TagNamespace(Namespace):
         # Later: validate + write to SHM
 
 
-# ---- registry so mock source can access active namespaces ----
+def emit_tag_updates(socketio, all_tags):
+    """
+    Called by background thread.
+    """
+    now = time.time() * 1000
 
-_active_namespaces = []
+    for sid, state in list(_clients.items()):
+        if now - state["last_emit"] < state["rate_ms"]:
+            continue
+
+        state["last_emit"] = now
+
+        if state["tags"]:
+            filtered = {
+                k: v for k, v in all_tags.items()
+                if k in state["tags"]
+            }
+        else:
+            # TEMPORARY: empty list = nothing (safer default)
+            filtered = {}
+
+        if filtered:
+            socketio.emit(
+                "tag_update",
+                {"tags": filtered, "ts": time.time()},
+                namespace="/tags",
+                room=sid,
+            )
 
 
 def register_tag_namespace(socketio):
-    ns = TagNamespace("/tags")
-    socketio.on_namespace(ns)
-    _active_namespaces.append(ns)
-
-
-def get_active_namespaces():
-    return list(_active_namespaces)
-
+    socketio.on_namespace(TagNamespace("/tags"))

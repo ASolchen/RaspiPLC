@@ -1,10 +1,10 @@
 import time
 import random
 from threading import Thread
-from .runtime import get_active_namespaces
+from .runtime import emit_tag_updates
 
 
-def start_mock_source():
+def start_mock_source(socketio):
     def run():
         while True:
             all_tags = {
@@ -13,10 +13,7 @@ def start_mock_source():
                 "heater.1.pct": round(random.random() * 100, 1),
             }
 
-            for ns in get_active_namespaces():
-                ns.maybe_emit(all_tags)
-
+            emit_tag_updates(socketio, all_tags)
             time.sleep(0.1)
 
-    thread = Thread(target=run, daemon=True)
-    thread.start()
+    Thread(target=run, daemon=True).start()

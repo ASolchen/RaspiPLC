@@ -10,18 +10,13 @@
 
 <script>
 /*
- * Tag Runtime – Phase 1 (Read + Write)
- * -----------------------------------
- * Responsibilities:
- *  - Establish connection
- *  - Subscribe to tag updates
- *  - Receive update payloads
- *  - Provide explicit write API
+ * Tag Runtime – Phase 2
+ * --------------------
+ * Adds explicit tag list subscription
  *
- * DOES NOT:
- *  - Scan DOM
- *  - Interpret tags
- *  - Assume write success
+ * Page may define:
+ *   window.TAG_SUBSCRIPTIONS = [ "tag.a", "tag.b" ]
+ *   window.TAG_UPDATE_RATE_MS = <number>   (optional)
  */
 
 (function () {
@@ -38,27 +33,17 @@
         connected: false,
         lastUpdateTs: null,
 
-        /*
-         * Write a tag value to backend
-         *
-         * @param {string} tag
-         * @param {*} value
-         * @param {object} [options]
-         */
-        write: function (tag, value, options = {}) {
-            if (!TagRuntime.connected) {
-                console.warn("[TagRuntime] write failed (not connected)", tag);
+        write: function (tag, value) {
+            if (!this.connected) {
+                console.warn("[TagRuntime] write ignored (not connected)");
                 return;
             }
 
-            const payload = {
+            tagSocket.emit("tag_write", {
                 tag: tag,
                 value: value,
-                source: options.source || "browser",
                 ts: Date.now() / 1000
-            };
-
-            tagSocket.emit("tag_write", payload);
+            });
         }
     };
 
@@ -66,10 +51,19 @@
         console.log("[TagRuntime] connected");
         TagRuntime.connected = true;
 
-        tagSocket.emit("subscribe", {
-            client: "browser",
-            mode: "readwrite"
-        });
+        // ---- NEW PART ----
+        const payload = {
+            tags: Array.isArray(window.TAG_SUBSCRIPTIONS)
+                ? window.TAG_SUBSCRIPTIONS
+                : []
+        };
+
+        if (typeof window.TAG_UPDATE_RATE_MS === "number") {
+            payload.rate_ms = window.TAG_UPDATE_RATE_MS;
+        }
+
+        tagSocket.emit("subscribe", payload);
+        // ------------------
     });
 
     tagSocket.on("disconnect", () => {
@@ -77,9 +71,6 @@
         TagRuntime.connected = false;
     });
 
-    /*
-     * Read path
-     */
     tagSocket.on("tag_update", (payload) => {
         if (!payload || !payload.tags) {
             console.warn("[TagRuntime] malformed update", payload);

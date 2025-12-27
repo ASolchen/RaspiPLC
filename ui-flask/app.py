@@ -12,7 +12,7 @@ socketio = SocketIO(app, async_mode="threading")
 
 register_routes(app)
 register_tag_namespace(socketio)
-start_mock_source()
+start_mock_source(socketio)
 
 if __name__ == "__main__":
     socketio.run(

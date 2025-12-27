@@ -1,37 +1,24 @@
 {% extends "base/base.html" %}
 
-{% block head %}
-{{ super() }}
-<script src="/static/socket.io.min.js"></script>
-{% endblock %}
-
 {% block tag_runtime %}
+<script src="/static/socket.io.min.js"></script>
 <script>
 console.log("=== base_tag_subscriber loaded ===");
 
 (function () {
-    if (typeof io === "undefined") {
-        console.error("Socket.IO not available");
-        return;
-    }
-
-    console.log("Connecting to /tags namespace");
     const tagSocket = io("/tags");
 
     window.TagRuntime = {
         socket: tagSocket,
         connected: false,
-        lastUpdateTs: null,
-
         write(tag, value) {
             if (!this.connected) return;
-            tagSocket.emit("tag_write", { tag, value, ts: Date.now() / 1000 });
+            tagSocket.emit("tag_write", { tag, value });
         }
     };
 
     tagSocket.on("connect", () => {
         console.log("[TagRuntime] connected");
-        TagRuntime.connected = true;
 
         const payload = {
             tags: Array.isArray(window.TAG_SUBSCRIPTIONS)
@@ -39,23 +26,15 @@ console.log("=== base_tag_subscriber loaded ===");
                 : []
         };
 
-        if (typeof window.TAG_UPDATE_RATE_MS === "number") {
-            payload.rate_ms = window.TAG_UPDATE_RATE_MS;
-        }
-
-        console.log("[TagRuntime] subscribe", payload);
         tagSocket.emit("subscribe", payload);
-    });
-
-    tagSocket.on("disconnect", () => {
-        TagRuntime.connected = false;
     });
 
     tagSocket.on("tag_update", payload => {
         if (window.onTagUpdate) {
-            window.onTagUpdate(payload.tags, payload.ts);
+            window.onTagUpdate(payload.tags);
         }
     });
 })();
 </script>
 {% endblock %}
+

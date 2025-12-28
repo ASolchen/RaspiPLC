@@ -4,10 +4,10 @@
 
 `shm-core` is the **infrastructure backbone** of RaspiPLC.
 
-It is responsible for creating and initializing the **shared memory process image** that all other services attach to.
+It is responsible for creating and initializing the **shared memory process image** that all other services attach to at runtime.
 
 This service defines:
-- What shared memory exists
+- What shared memory regions exist
 - How large each region is
 - How regions are named
 - How they are initialized
@@ -26,8 +26,10 @@ Once it runs:
 - Other services may start in any order
 - State survives restarts of all other services
 
-`shm-core` is not a runtime service.  
-It runs once at boot and then exits.
+`shm-core` is **not** a runtime data service.  
+It runs once at boot, prepares memory, and exits.
+
+All live access to shared memory after initialization is handled by **`shm-service`**.
 
 ---
 
@@ -38,8 +40,10 @@ It runs once at boot and then exits.
 - Creating shared memory regions under `/dev/shm`
 - Defining region names and sizes
 - Setting permissions and ownership
-- Optionally initializing memory contents (e.g. zeroing)
-- Enforcing memory layout version compatibility
+- Initializing memory contents (typically zeroing)
+- Establishing a stable, versioned memory layout
+
+It is the **single source of truth** for shared memory existence and sizing.
 
 ---
 
@@ -48,10 +52,13 @@ It runs once at boot and then exits.
 `shm-core` must **never**:
 
 - Contain control or sequencing logic
-- Implement protocol behavior (Modbus, etc.)
+- Implement protocol behavior (Modbus, UI, etc.)
 - Interpret memory contents semantically
+- Act as a runtime data access API
 - Read or write live process values after initialization
 - Depend on any other RaspiPLC service
+
+Any of the above belongs in downstream services.
 
 ---
 
@@ -65,7 +72,7 @@ The following rules are **non-negotiable**:
 4. Memory layout changes require an explicit version bump
 5. Other services must fail clearly if expected regions are missing or incompatible
 
-Breaking these rules will introduce tight coupling and undefined behavior.
+Breaking these rules introduces tight coupling and undefined behavior.
 
 ---
 
@@ -73,14 +80,16 @@ Breaking these rules will introduce tight coupling and undefined behavior.
 
 Shared memory represents the **authoritative process image** of the controller.
 
-All persistent state lives here:
+All persistent controller state lives here:
 - Inputs
 - Outputs
-- Internal state
+- Internal runtime state
 - Commands
-- Parameters
+- Parameters / setpoints
 
-If a service restarts, state must still be present.
+If a service restarts, **state must still be present**.
+
+This mirrors the behavior of a real PLC CPU.
 
 ---
 
@@ -88,25 +97,47 @@ If a service restarts, state must still be present.
 
 - Runs as a **one-shot systemd service**
 - Executes during system startup
-- Creates and initializes shared memory
+- Creates and initializes shared memory regions
 - Exits once memory is ready
 
-After this point, `shm-core` has no runtime role.
+After this point, `shm-core` has **no runtime role**.
 
 ---
 
-## Expected Directory Contents
+## Directory Contents
 
-This directory will eventually contain:
+This directory contains the complete implementation of shared memory initialization:
 
-- `README.md` (this file)
-- `install.sh`
-- `uninstall.sh`
-- `shm_layout.py` (single source of truth for memory layout)
-- `shm_init.py` (initializer executable)
-- `plc-shm-init.service` (systemd unit)
+- `README.md` — this document
+- `install.sh` — installation script
+- `uninstall.sh` — removal script
+- `shm_layout.py` — authoritative shared memory layout definition
+- `shm_init.py` — shared memory initializer executable
+- `raspiplc-shm-init.service` — systemd unit (one-shot)
 
-Only `README.md` is present initially to lock in intent.
+The layout and initializer are intentionally simple and stable.
+
+---
+
+## Relationship to `shm-service`
+
+`shm-core` and `shm-service` are deliberately separate:
+
+- `shm-core`:
+  - Creates memory
+  - Defines layout
+  - Exits
+
+- `shm-service`:
+  - Owns all `mmap()` access
+  - Enforces tag bounds and types
+  - Provides IPC-based read/write access
+  - Runs continuously
+
+This separation prevents:
+- Accidental memory corruption
+- Implicit ownership
+- Restart-order coupling
 
 ---
 
@@ -120,13 +151,14 @@ Many soft-PLC designs fail because:
 
 `shm-core` exists to eliminate those failure modes.
 
-If this service is boring and rarely modified, it is doing its job.
+If this service is boring, rarely modified, and rarely thought about, it is doing its job.
 
 ---
 
 ## Status
 
-Architecture defined.  
-Implementation intentionally deferred.
+**Implemented and in use.**
 
-The next step is to define the memory layout in a protocol-neutral way before writing any code.
+Shared memory creation, initialization, and persistence are operational and verified.
+
+Future changes should be rare and deliberate, as they affect the foundation of the entire system.

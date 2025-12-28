@@ -1,0 +1,64 @@
+{
+  "version": 1,
+
+  "regions": {
+    "inputs": {
+      "path": "/dev/shm/raspiplc_inputs"
+    },
+    "outputs": {
+      "path": "/dev/shm/raspiplc_outputs"
+    },
+    "state": {
+      "path": "/dev/shm/raspiplc_state"
+    },
+    "commands": {
+      "path": "/dev/shm/raspiplc_commands"
+    },
+    "parameters": {
+      "path": "/dev/shm/raspiplc_parameters"
+    }
+  },
+
+  "tags": {
+    "smoker.temp": {
+      "region": "inputs",
+      "offset": 0,
+      "type": "float32",
+      "units": "degF",
+      "description": "Smoker internal air temperature"
+    },
+
+    "meat.temp": {
+      "region": "inputs",
+      "offset": 4,
+      "type": "float32",
+      "units": "degF",
+      "description": "Meat probe temperature"
+    },
+
+    "heater.1.pct": {
+      "region": "outputs",
+      "offset": 0,
+      "type": "uint16",
+      "scale": 0.1,
+      "units": "percent",
+      "description": "Heater 1 output percentage"
+    },
+
+    "smoker.mode": {
+      "region": "state",
+      "offset": 0,
+      "type": "uint8",
+      "description": "Operating mode (0=off, 1=heat, 2=hold)"
+    },
+
+    "smoker.setpoint": {
+      "region": "parameters",
+      "offset": 0,
+      "type": "float32",
+      "units": "degF",
+      "description": "Target smoker temperature"
+    }
+  }
+}
+

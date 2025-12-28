@@ -15,186 +15,168 @@ If the SD card fails, the Pi is reimaged, or the project is paused for months, t
 
 ## Core Design Principles
 
-- **Shared memory represents the authoritative process image**
-- **All persistent controller state lives in shared memory**
-- **No service owns shared memory at runtime**
-- **Access to shared memory is centralized and controlled**
-- **Services may be stopped or restarted without losing state**
-- **Protocols (Modbus, UI, etc.) are adapters, not dependencies**
-- **Internal state is protocol-neutral**
-- **Control logic is isolated from UI and protocols**
-- **Architecture first, implementation second**
+- Shared memory represents the authoritative process image
+- All persistent controller state lives in shared memory
+- No service owns shared memory at runtime
+- Access to shared memory is centralized and controlled
+- Services may be stopped or restarted without losing state
+- Protocols (Modbus, UI, etc.) are adapters, not dependencies
+- Internal state is protocol-neutral
+- Control logic is isolated from UI and protocols
+- Architecture first, implementation second
 
-The goal is clarity, robustness, and restart-safety — not cleverness.
+The goal is clarity, robustness, and restart safety — not cleverness.
 
 ---
 
 ## High-Level Architecture
 
-             ┌──────────────┐
-             │   UI (Flask) │
-             └──────┬───────┘
-                    │ IPC
-          ┌─────────▼─────────┐
-          │   SHM Service     │  ← Authoritative access
-          │ (shm-service)     │
-          └─────────┬─────────┘
-                    │ mmap
-          ┌─────────▼─────────┐
-          │  Shared Memory     │  ← Process Image
-          │  (/dev/shm)        │
-          └─────────┬─────────┘
-                    │
-    ┌───────────────┼────────────────┐
-    │               │                │
+    Browser / External Clients
+                ↓
+           UI (Flask)
+                ↓ IPC
+          shm-service
+                ↓ mmap
+        Shared Memory (/dev/shm)
+                ↓
+    ┌──────────────┬──────────────┬──────────────┐
+    │              │              │              │
+ Runtime       IO Bridge     Modbus Adapter   Other Adapters
+ (Soft PLC)    (GPIO/SPI)    (Optional)
 
-┌───────▼───────┐ ┌─────▼────────┐ ┌─────▼─────────┐
-│ Runtime       │ │ IO Bridge    │ │ Modbus Adapter│
-│ (Soft PLC)    │ │ (GPIO/SPI)   │ │ (Optional)    │
-└───────────────┘ └──────────────┘ └───────────────┘
+Shared memory represents the **process image** of the controller.
 
-Shared memory represents the **process image** of the controller.  
-All services ultimately interact with this memory, but **only via the SHM service**.
+All services interact with shared memory **only via `shm-service`**.
 
 ---
 
-## Services (Current)
+## Services
 
 Each service is intentionally small, focused, and independently restartable.
 
-### 1. Shared Memory Core (`shm-core`)
-**Role:** Infrastructure / Backplane
+### Shared Memory Core (shm-core)
 
-- Creates and sizes shared memory regions
-- Defines memory layout, naming, and versioning
+Role: Infrastructure / backplane
+
+- Creates shared memory regions
+- Defines region names and sizes
 - Initializes memory contents
-- Runs as a one-shot systemd service at boot
+- Runs once at boot and exits
 
-**Design rule:**
-> No other service may create, resize, or redefine shared memory.
+No other service may create, resize, or redefine shared memory.
 
 ---
 
-### 2. Shared Memory Service (`shm-service`)
-**Role:** Runtime data access authority
+### Shared Memory Service (shm-service)
 
-- Owns all `mmap()` access to shared memory
+Role: Runtime data access authority
+
+- Owns all mmap access to shared memory
 - Enforces tag layout, types, and bounds
 - Provides IPC-based read/write access
 - Supports hot-reload of tag definitions
-- Runs continuously as a systemd service
+- Runs continuously
 
-This service acts like the **PLC backplane + tag database**, ensuring that:
-- No client corrupts memory
-- No service relies on implicit offsets
-- Restart order does not matter
+This service acts like the PLC backplane and tag database.
 
 ---
 
-### 3. Runtime (`runtime`)
-**Role:** Control logic (Soft PLC)
+### Runtime (Soft PLC)
 
-- Executes the control logic or state machines
-- Reads inputs and commands via `shm-service`
-- Writes outputs and internal state via `shm-service`
-- Runs at a fixed or bounded cycle time
+Role: Control logic execution
 
-This is the **only service allowed to implement control logic**.
+- Executes state machines or control logic
+- Reads inputs and commands via shm-service
+- Writes outputs and internal state via shm-service
+- Runs at a bounded or fixed cycle time
 
----
-
-### 4. IO Bridge (`io-bridge`)
-**Role:** Hardware interface
-
-- Maps physical IO (GPIO, SPI, I²C, PWM, ADC, etc.) to shared memory
-- Reads output regions → drives hardware
-- Reads hardware → writes input regions
-- Accesses memory exclusively via `shm-service`
-
-This separation allows:
-- Hardware simulation
-- Headless operation
-- Easy hardware replacement or expansion
+This is the only service allowed to implement control logic.
 
 ---
 
-### 5. UI Webserver (`ui-flask`)
-**Role:** Human–Machine Interface
+### IO Bridge
+
+Role: Hardware abstraction
+
+- Maps physical IO to shared memory
+- Reads outputs and drives hardware
+- Reads hardware and updates inputs
+- Uses shm-service exclusively for access
+
+Allows hardware simulation and replacement without affecting logic.
+
+---
+
+### UI Webserver (ui-flask)
+
+Role: Human–machine interface
 
 - Local touchscreen UI
-- Implemented as a Flask + Socket.IO application
+- Flask + Socket.IO backend
 - Subscribes to live tag updates
 - Writes commands and setpoints
-- Contains **no control logic**
-- Accesses all state through `shm-service`
+- Contains no control logic
 
-Typically displayed via Chromium in kiosk mode.
+The UI is optional and replaceable.
 
 ---
 
-### 6. Modbus Adapter (`modbus-adapter`) *(Optional)*
-**Role:** External protocol adapter
+### Modbus Adapter (Optional)
 
-- Mirrors shared memory to Modbus TCP
-- Provides external access for PLCs, SCADA, or test tools
-- Contains no logic
+Role: External protocol adapter
+
+- Maps shared memory to Modbus TCP
+- Provides external system access
 - Owns no state
-- May be stopped or omitted entirely
+- Contains no logic
 
-Modbus is treated like a **fieldbus card**, not a CPU dependency.
+Protocols are treated like fieldbus cards, not CPUs.
 
 ---
 
 ## Shared Memory Philosophy
 
-Shared memory represents the **authoritative process image** of the controller.
+Shared memory represents the **authoritative process image**.
 
-Memory regions are **named by function**, not by protocol concepts such as coils or registers.
+Memory regions are named by function, not protocol concepts.
 
-Examples of functional regions:
+Typical regions include:
 
-- Inputs (raw sensor values)
-- Outputs (actuator commands)
+- Inputs
+- Outputs
 - Internal runtime state
-- Commands (from UI or external systems)
+- Commands
 - Parameters / setpoints
 
-Protocol-specific mappings (Modbus coils/registers, etc.) happen **only in adapter services**.
+Protocol-specific mappings happen only in adapter services.
 
 ---
 
 ## Repository Structure
-RaspiPLC/
-├── README.md
-├── docs/
-│ └── architecture.md
-│
-├── shm-core/
-├── shm-service/
-├── runtime/
-├── io-bridge/
-├── ui-flask/
-└── modbus-adapter/
 
-Each service directory is expected to contain:
-- `README.md`
-- `install.sh`
-- `uninstall.sh`
-- Source files
-- systemd service file (where applicable)
+    RaspiPLC/
+    ├── README.md
+    ├── docs/
+    │   └── architecture.md
+    ├── shm-core/
+    ├── shm-service/
+    ├── runtime/
+    ├── io-bridge/
+    ├── ui-flask/
+    └── modbus-adapter/
+
+Each service directory is self-contained and includes its own README and lifecycle scripts.
 
 ---
 
-## Development & Deployment Model
+## Development and Deployment Model
 
-- **Development machine:** Windows PC
-- **Target runtime:** Raspberry Pi
-- **Source of truth:** Git
-- **Deployment:** `git pull` + `install.sh`
+- Development machine: PC
+- Target runtime: Raspberry Pi
+- Source of truth: Git
+- Deployment: git pull plus install scripts
 
-The Raspberry Pi is considered **disposable** and may be re-imaged at any time.
-
-All changes should originate from the repository, not be made ad-hoc on the target system.
+The Raspberry Pi is considered disposable and may be reimaged at any time.
 
 ---
 
@@ -202,18 +184,21 @@ All changes should originate from the repository, not be made ad-hoc on the targ
 
 The project has progressed from architecture into **working infrastructure**.
 
-Currently implemented and verified:
+Implemented and verified:
+
 - Shared memory creation and persistence
-- Centralized SHM access service
+- Centralized shared memory access service
 - IPC-based read/write semantics
 - Flask UI reading and writing real controller state
 - Removal of all mock data sources
 
-Future work focuses on **features built on this foundation**, not further plumbing.
+Future work focuses on features built on this foundation.
 
 ---
 
-## Non-Goals (At Least Initially)
+## Non-Goals
+
+At least initially, the project does not attempt to provide:
 
 - Hard real-time guarantees
 - Safety certification
@@ -221,13 +206,20 @@ Future work focuses on **features built on this foundation**, not further plumbi
 - Multi-user authentication
 - Cloud integration
 
-These may be explored later, but are intentionally out of scope for the initial design.
+These may be explored later but are intentionally out of scope.
 
 ---
 
 ## Why This Exists
 
-This project exists to explore a clean, understandable, and restart-safe way to build a soft PLC using Linux primitives — without burying the design inside a single monolithic service.
+Many soft-PLC systems fail because:
+
+- State ownership is unclear
+- Restart order matters
+- Protocols implicitly create state
+- Memory layout drifts over time
+
+RaspiPLC exists to explore a clean, understandable, and restart-safe alternative using standard Linux primitives.
 
 If this README still makes sense six months from now, it has done its job.
 

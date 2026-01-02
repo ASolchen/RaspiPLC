@@ -1,6 +1,7 @@
 /* ---------- Tag updates from backend ---------- */
 
 window.onTagUpdate = function (tags, ts) {
+    console.log("Tag update:", tags, ts);
     if (tags["smoker.temp"] !== undefined) {
         document.getElementById("smoker-temp").textContent =
             tags["smoker.temp"].toFixed(1);
@@ -20,6 +21,7 @@ window.onTagUpdate = function (tags, ts) {
 /* ---------- Tag write helpers ---------- */
 
 function tagWrite(tag, value) {
+    console.log("tagWrite", tag, value);
     if (!window.TagRuntime || !TagRuntime.socket) {
         console.warn("TagRuntime not ready");
         return;
@@ -37,6 +39,7 @@ function tagWrite(tag, value) {
 }
 
 function writeHeaterPct() {
+    console.log("Writing heater pct");
     const el = document.getElementById("heater-setpoint");
     const value = parseInt(el.value, 10);
 

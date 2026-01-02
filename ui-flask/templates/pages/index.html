@@ -1,16 +1,48 @@
 {% extends "layouts/local_hmi.html" %}
 
-{% block title %}Status{% endblock %}
+{% block title %}Poor-manView 1000{% endblock %}
 
 {% block content %}
-<div class="card">
-    <h2>System Status</h2>
-    <p>Smoker Temp: <span id="smoker-temp">--</span></p>
-    <p>Meat Temp: <span id="meat-temp">--</span></p>
-    <p>Heater: <span id="heater-pct">--</span>%</p>
-</div>
-{% endblock %}
 
+<div class="card">
+    <h2>Status</h2>
+    <p>Smoker Temp: <span id="smoker-temp">--</span> °F</p>
+    <p>Meat Temp: <span id="meat-temp">--</span> °F</p>
+    <p>Heater Output: <span id="heater-pct">--</span> %</p>
+</div>
+
+<div class="card">
+    <h2>Controls</h2>
+
+    <!-- Momentary enable -->
+    <button
+        class="hmi-button"
+        onmousedown="tagWrite('heater.enable', 1)"
+        onmouseup="tagWrite('heater.enable', 0)"
+        ontouchstart="tagWrite('heater.enable', 1)"
+        ontouchend="tagWrite('heater.enable', 0)">
+        Heater ENABLE
+    </button>
+
+    <br><br>
+
+    <!-- Numeric write -->
+    <label for="heater-setpoint">Heater %</label><br>
+    <input
+        id="heater-setpoint"
+        type="number"
+        min="0"
+        max="100"
+        step="1"
+        value="50"
+        style="font-size:18px; width:100px;">
+
+    <button class="hmi-button" onclick="writeHeaterPct()">
+        Write
+    </button>
+</div>
+
+{% endblock %}
 
 {% block tag_bindings %}
 <script src="/static/js/pages/index.js"></script>

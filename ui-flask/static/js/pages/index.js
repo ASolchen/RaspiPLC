@@ -66,5 +66,5 @@ function writeHeaterPct() {
         return;
     }
 
-    tagWrite("heater.1.pct", value);
+    tagWrite("smoker.temp", value);
 }

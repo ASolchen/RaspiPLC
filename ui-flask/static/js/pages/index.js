@@ -24,7 +24,18 @@ window.tagHandlers = [
     }
   }
 ];
+// Derive subscriptions automatically
+window.TAG_SUBSCRIPTIONS =
+  [...new Set(window.tagHandlers.map(h => h.tag))];
 
+// Fan-out dispatcher
+window.onTagUpdate = function (tags) {
+  for (const h of window.tagHandlers) {
+    if (h.tag in tags) {
+      h.onUpdate(tags[h.tag]);
+    }
+  }
+};
 /* ---------- Tag write helpers ---------- */
 
 function tagWrite(tag, value) {

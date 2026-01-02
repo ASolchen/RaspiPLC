@@ -1,22 +1,29 @@
-/* ---------- Tag updates from backend ---------- */
-
-window.onTagUpdate = function (tags, ts) {
-    console.log("Tag update:", tags, ts);
-    if (tags["smoker.temp"] !== undefined) {
-        document.getElementById("smoker-temp").textContent =
-            tags["smoker.temp"].toFixed(1);
+// static/js/pages/index.js
+console.log("Index page JS loaded!!");
+// Append-only list of handlers
+window.tagHandlers = [
+  {
+    tag: "smoker.temp",
+    onUpdate: value => {
+      document.getElementById("smoker-temp").textContent =
+        Number(value).toFixed(1);
     }
-
-    if (tags["meat.temp"] !== undefined) {
-        document.getElementById("meat-temp").textContent =
-            tags["meat.temp"].toFixed(1);
+  },
+  {
+    tag: "meat.temp",
+    onUpdate: value => {
+      document.getElementById("meat-temp").textContent =
+        Number(value).toFixed(1);
     }
-
-    if (tags["heater.1.pct"] !== undefined) {
-        document.getElementById("heater-pct").textContent =
-            tags["heater.1.pct"];
+  },
+  {
+    tag: "heater.1.pct",
+    onUpdate: value => {
+      document.getElementById("heater-pct").textContent =
+        Math.round(value);
     }
-};
+  }
+];
 
 /* ---------- Tag write helpers ---------- */
 

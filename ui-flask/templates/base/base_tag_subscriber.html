@@ -19,6 +19,7 @@ console.log("=== base_tag_subscriber loaded ===");
 
     tagSocket.on("connect", () => {
         console.log("[TagRuntime] connected");
+        window.TagRuntime.connected = true;
 
         const payload = {
             tags: Array.isArray(window.TAG_SUBSCRIPTIONS)
@@ -36,5 +37,7 @@ console.log("=== base_tag_subscriber loaded ===");
     });
 })();
 </script>
+{% block tag_bindings %}{% endblock %}
 {% endblock %}
+
 

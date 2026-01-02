@@ -11,29 +11,7 @@
 </div>
 {% endblock %}
 
-{% block tag_runtime_scripts %}
-<script>
-    // ✅ Declare what tags this page needs
-    window.TAG_SUBSCRIPTIONS = [
-        "smoker.temp",
-        "meat.temp",
-        "heater.1.pct"
-    ];
 
-    // ✅ Handle incoming updates
-    window.onTagUpdate = function(tags, ts) {
-        if (tags["smoker.temp"] !== undefined) {
-            document.getElementById("smoker-temp").textContent =
-                tags["smoker.temp"];
-        }
-        if (tags["meat.temp"] !== undefined) {
-            document.getElementById("meat-temp").textContent =
-                tags["meat.temp"];
-        }
-        if (tags["heater.1.pct"] !== undefined) {
-            document.getElementById("heater-pct").textContent =
-                tags["heater.1.pct"];
-        }
-    };
-</script>
+{% block tag_bindings %}
+<script src="/static/js/pages/index.js"></script>
 {% endblock %}

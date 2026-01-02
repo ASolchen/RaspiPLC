@@ -7,6 +7,8 @@ from web.routes import register_routes
 from tags.runtime import register_tag_namespace, emit_tag_updates
 
 app = Flask(__name__)
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+app.jinja_env.auto_reload = True
 app.config["SECRET_KEY"] = "dev"
 
 socketio = SocketIO(app, async_mode="threading")

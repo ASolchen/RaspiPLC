@@ -27,4 +27,3 @@ rm -rf "$INSTALL_ROOT"
 
 echo "[uninstall] shm-service removed."
 echo "[uninstall] Shared memory and config files were NOT removed."
-

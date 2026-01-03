@@ -13,12 +13,14 @@ mkdir -p "$ETC_ROOT"
 
 # Copy service files
 cp shm_service.py "$INSTALL_ROOT/"
-cp shmctl.py "$INSTALL_ROOT/"
+cp shmctl.py      "$INSTALL_ROOT/"
+cp shmctrl.py     "$INSTALL_ROOT/"
 cp tags.example.json "$ETC_ROOT/tags.json"
 
 # Make executables executable
 chmod +x "$INSTALL_ROOT/shm_service.py"
 chmod +x "$INSTALL_ROOT/shmctl.py"
+chmod +x "$INSTALL_ROOT/shmctrl.py"
 
 # Install systemd unit
 cp "$SERVICE_NAME" /etc/systemd/system/
@@ -31,4 +33,3 @@ systemctl enable "$SERVICE_NAME"
 
 echo "[install] shm-service installed."
 echo "[install] Edit $ETC_ROOT/tags.json before starting."
-

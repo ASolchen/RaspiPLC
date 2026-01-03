@@ -1,0 +1,14 @@
+[Unit]
+Description=RaspiPLC PLC Runtime
+After=network.target raspiplc-shm-init.service shm-service.service
+Requires=raspiplc-shm-init.service shm-service.service
+
+[Service]
+Type=simple
+Environment=PYTHONPATH=/opt/raspiplc/shm-service
+ExecStart=/usr/bin/python3 /opt/raspiplc/plc-runtime/plc_runtime.py
+Restart=always
+RestartSec=1
+
+[Install]
+WantedBy=multi-user.target

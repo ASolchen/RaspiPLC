@@ -16,26 +16,10 @@ It does NOT:
 
 import sys
 import json
-import socket
 from typing import Dict, Any
 
-SOCKET_PATH = "/run/raspiplc-shm.sock"
-
-
-# ---------------------------------------------------------------------------
-# IPC
-# ---------------------------------------------------------------------------
-
-def send_request(req: Dict[str, Any]) -> Dict[str, Any]:
-    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-        sock.connect(SOCKET_PATH)
-        sock.sendall(json.dumps(req).encode())
-        data = sock.recv(8192)
-
-    if not data:
-        raise RuntimeError("No response from shm-service")
-
-    return json.loads(data.decode())
+# Import the reusable client
+from shmctrl import ShmCtrl
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +29,7 @@ def send_request(req: Dict[str, Any]) -> Dict[str, Any]:
 def parse_read(args):
     if not args:
         raise ValueError("read requires at least one tag name")
-    return {"read": args}
+    return args
 
 
 def parse_write(args):
@@ -57,13 +41,12 @@ def parse_write(args):
         if "=" not in arg:
             raise ValueError(f"Invalid write argument '{arg}', expected key=value")
         key, val = arg.split("=", 1)
+
+        # Keep your current behavior: parse numbers as float
+        # (service will pack based on tag type)
         values[key] = float(val)
 
-    return {"write": values}
-
-
-def parse_reload(_args):
-    return {"reload": True}
+    return values
 
 
 # ---------------------------------------------------------------------------
@@ -71,6 +54,8 @@ def parse_reload(_args):
 # ---------------------------------------------------------------------------
 
 def main():
+    ctrl = ShmCtrl()
+
     # Case 1: JSON via stdin
     if not sys.stdin.isatty():
         try:
@@ -79,35 +64,54 @@ def main():
             print(json.dumps({"error": f"Invalid JSON input: {e}"}))
             sys.exit(1)
 
-    # Case 2: CLI arguments
-    else:
-        if len(sys.argv) < 2:
-            print("Usage:")
-            print("  shmctl read <tag> [tag ...]")
-            print("  shmctl write <tag=value> [tag=value ...]")
-            print("  shmctl reload")
-            sys.exit(1)
-
-        cmd = sys.argv[1]
-        args = sys.argv[2:]
-
         try:
-            if cmd == "read":
-                req = parse_read(args)
-            elif cmd == "write":
-                req = parse_write(args)
-            elif cmd == "reload":
-                req = parse_reload(args)
+            # allow raw passthrough
+            # e.g. echo '{"read":["tag1"]}' | shmctl
+            # or   echo '{"write":{"tag1":1}}' | shmctl
+            if "read" in req:
+                resp = ctrl._send({"read": req["read"]})
+            elif "write" in req:
+                resp = ctrl._send({"write": req["write"]})
+            elif "reload" in req:
+                resp = ctrl._send({"reload": True})
             else:
-                raise ValueError(f"Unknown command '{cmd}'")
+                resp = ctrl._send(req)
+
+            print(json.dumps(resp, indent=2))
+            return
+
         except Exception as e:
             print(json.dumps({"error": str(e)}))
             sys.exit(1)
 
-    # Send request
+    # Case 2: CLI arguments
+    if len(sys.argv) < 2:
+        print("Usage:")
+        print("  shmctl read <tag> [tag ...]")
+        print("  shmctl write <tag=value> [tag=value ...]")
+        print("  shmctl reload")
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+    args = sys.argv[2:]
+
     try:
-        resp = send_request(req)
+        if cmd == "read":
+            tags = parse_read(args)
+            resp = {"read": ctrl.read(tags)}
+
+        elif cmd == "write":
+            values = parse_write(args)
+            resp = ctrl.write(values)
+
+        elif cmd == "reload":
+            resp = ctrl.reload()
+
+        else:
+            raise ValueError(f"Unknown command '{cmd}'")
+
         print(json.dumps(resp, indent=2))
+
     except Exception as e:
         print(json.dumps({"error": str(e)}))
         sys.exit(1)
@@ -115,4 +119,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

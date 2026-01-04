@@ -6,36 +6,36 @@
 
 <div class="card">
     <h2>Status</h2>
-    <p>Smoker Temp: <span id="smoker-temp">--</span> °F</p>
-    <p>Meat Temp: <span id="meat-temp">--</span> °F</p>
-    <p>Heater Output: <span id="heater-pct">--</span> %</p>
+    <div class="status-grid">
+        <p>Smoker Temp: <span id="smoker-temp">--</span> °F</p>
+        <p>Meat Temp: <span id="meat-temp">--</span> °F</p>
+        <p>Heater 1 Output: <span id="heater1-pct">--</span> %</p>
+        <p>Heater 2 Output: <span id="heater2-pct">--</span> %</p>
+    </div> 
 </div>
 
 <div class="card">
-    <h2>Controls</h2>
+    <h2>Recipe</h2>
 
     <!-- Momentary enable -->
-    <button
-        class="hmi-button"
-        onmousedown="tagWrite('heater.enable', 1)"
-        onmouseup="tagWrite('heater.enable', 0)"
-        ontouchstart="tagWrite('heater.enable', 1)"
-        ontouchend="tagWrite('heater.enable', 0)">
-        Heater ENABLE
+    <button class="hmi-button" onmousedown="tagWrite('heater.enable', 1)" onmouseup="tagWrite('heater.enable', 0)" ontouchstart="tagWrite('heater.enable', 1)" ontouchend="tagWrite('heater.enable', 0)">
+        Start
     </button>
-
+    <button class="hmi-button">Time Hold</button>
+    <button class="hmi-button">Abort</button>
+    <button class="hmi-button">Button 4</button>
+    <button class="hmi-button">Button 5</button>
     <br><br>
+    <label for="mode">Mode:</label>
+    <select class="hmi-dropdown" id="mode" name="mode">
+      <option value="1">Meat Sticks 🥩</option>
+      <option value="2">Bacon 🥓</option>
+      <option value="3">Sausage🌭</option>
+    </select>
 
     <!-- Numeric write -->
     <label for="heater-setpoint">Heater %</label><br>
-    <input
-        id="heater-setpoint"
-        type="number"
-        min="0"
-        max="100"
-        step="1"
-        value="50"
-        style="font-size:18px; width:100px;">
+    <input id="heater-setpoint" type="number" min="0" max="100" step="1" value="50" style="font-size:18px; width:100px;">
 
     <button class="hmi-button" onclick="writeHeaterPct()">Write</button>
 </div>

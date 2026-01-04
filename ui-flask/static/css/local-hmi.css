@@ -93,11 +93,25 @@
     }
     
     .hmi-button {
+        border-radius: 8px;
         padding: 10px;
         font-size: 16px;
         font-weight: bold;
     }
-    .hmi-button:hover {
-        background-color: #ddd;
-        cursor: pointer;
+
+    .hmi-dropdown {
+        border-radius: 8px;
+        background-color: white;
+        padding: 8px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    
+    .status-grid {
+    display: flex;
+    flex-wrap: wrap;
+    }
+
+    .status-grid p {
+        width: 33%;
     }

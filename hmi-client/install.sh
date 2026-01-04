@@ -19,6 +19,11 @@ fi
 CHROMIUM_BIN="$(command -v chromium)"
 echo "[install] Using Chromium binary: $CHROMIUM_BIN"
 
+
+echo "[install] Installing Noto Color Emoji font..."
+sudo apt install -y fonts-noto-color-emoji
+
+
 # Install kiosk launcher (system-owned path)
 sudo mkdir -p "$INSTALL_DIR"
 sudo cp kiosk-launch.sh "$INSTALL_DIR/"

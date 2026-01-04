@@ -5,18 +5,17 @@
 {% block content %}
 
 <div class="card">
-    <h2>Status</h2>
     <div class="status-grid">
-        <p>Smoker Temp: <span id="smoker-temp">--</span> °F</p>
-        <p>Meat Temp: <span id="meat-temp">--</span> °F</p>
-        <p>Heater 1 Output: <span id="heater1-pct">--</span> %</p>
-        <p>Heater 2 Output: <span id="heater2-pct">--</span> %</p>
+
+        <p class="hmi-indicator">Status<br><span id="smoker-status">STOPPED</span></p>
+        <p class="hmi-indicator">Smoker Temp<br><span id="smoker-temp">***.*</span><span> °F</span></p>
+        <p class="hmi-indicator">Meat Temp<br><span id="meat-temp">***.*</span> °F</p>
+        <p class="hmi-indicator">Heater 1 Output<br><span id="heater1-pct">**</span> %</p>
+        <p class="hmi-indicator">Heater 2 Output<br><span id="heater2-pct">**</span> %</p>
     </div> 
 </div>
 
 <div class="card">
-    <h2>Recipe</h2>
-
     <!-- Momentary enable -->
     <button class="hmi-button" onmousedown="tagWrite('heater.enable', 1)" onmouseup="tagWrite('heater.enable', 0)" ontouchstart="tagWrite('heater.enable', 1)" ontouchend="tagWrite('heater.enable', 0)">
         Start
@@ -34,7 +33,7 @@
     </select>
 
     <!-- Numeric write -->
-    <label for="heater-setpoint">Heater %</label><br>
+    <label for="heater-setpoint">Heater %</label>
     <input id="heater-setpoint" type="number" min="0" max="100" step="1" value="50" style="font-size:18px; width:100px;">
 
     <button class="hmi-button" onclick="writeHeaterPct()">Write</button>

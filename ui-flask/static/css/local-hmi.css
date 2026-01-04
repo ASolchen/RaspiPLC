@@ -102,9 +102,10 @@
     .hmi-dropdown {
         border-radius: 8px;
         background-color: white;
-        padding: 8px;
-        font-size: 16px;
+        padding: 10px 0px;
+        font-size: 32px;
         font-weight: bold;
+
     }
     
     .status-grid {
@@ -114,4 +115,16 @@
 
     .status-grid p {
         width: 33%;
+        font-weight: bold;
+        text-align: center;
+        border: 2px solid #888;
+        padding: 8px;
+        background-color: #f8f8f8;
+        border-radius: 4px;   /* optional */
+    }
+
+    .hmi-indicator {
+        border: 1px solid #999;
+        padding: 6px;
+
     }

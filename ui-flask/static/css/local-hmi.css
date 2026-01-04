@@ -91,3 +91,13 @@
         margin-left: auto;
         font-weight: bold;
     }
+    
+    .hmi-button {
+        padding: 10px;
+        font-size: 16px;
+        font-weight: bold;
+    }
+    .hmi-button:hover {
+        background-color: #ddd;
+        cursor: pointer;
+    }

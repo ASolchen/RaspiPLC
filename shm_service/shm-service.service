@@ -1,6 +1,6 @@
 [Unit]
 Description=RaspiPLC Shared Memory Service
-Documentation=README.md
+Documentation=https://github.com/ASolchen/RaspiPLC
 After=raspiplc-shm-init.service
 Requires=raspiplc-shm-init.service
 

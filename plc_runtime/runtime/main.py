@@ -18,5 +18,5 @@ def cycle(shm):
     temp = vals.get("smoker.temp", 0.0)
 
     shm.write({
-        "meat.temp": temp * 2.0
+        "meat.temp": temp + 2.0
     })

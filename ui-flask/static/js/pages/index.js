@@ -19,7 +19,7 @@ window.tagHandlers = [
   {
     tag: "heater.1.pct",
     onUpdate: value => {
-      document.getElementById("heater-pct").textContent =
+      document.getElementById("heater1-pct").textContent =
         Math.round(value);
     }
   }

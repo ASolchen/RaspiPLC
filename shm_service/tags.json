@@ -2,26 +2,17 @@
   "version": 1,
 
   "regions": {
-    "inputs": {
-      "path": "/dev/shm/raspiplc_inputs"
+    "read_only": {
+      "path": "/dev/shm/raspiplc_read_only"
     },
-    "outputs": {
-      "path": "/dev/shm/raspiplc_outputs"
-    },
-    "state": {
-      "path": "/dev/shm/raspiplc_state"
-    },
-    "commands": {
-      "path": "/dev/shm/raspiplc_commands"
-    },
-    "parameters": {
-      "path": "/dev/shm/raspiplc_parameters"
+    "read_write": {
+      "path": "/dev/shm/raspiplc_read_write"
     }
   },
 
   "tags": {
     "smoker.temp": {
-      "region": "inputs",
+      "region": "read_only",
       "offset": 0,
       "type": "float32",
       "units": "degF",
@@ -29,7 +20,7 @@
     },
 
     "meat.temp": {
-      "region": "inputs",
+      "region": "read_only",
       "offset": 4,
       "type": "float32",
       "units": "degF",
@@ -37,28 +28,27 @@
     },
 
     "heater.1.pct": {
-      "region": "outputs",
-      "offset": 0,
+      "region": "read_only",
+      "offset": 8,
       "type": "uint16",
       "scale": 0.1,
       "units": "percent",
-      "description": "Heater 1 output percentage"
+      "description": "Heater 1 output percentage (actual state)"
     },
 
     "smoker.mode": {
-      "region": "state",
-      "offset": 0,
+      "region": "read_only",
+      "offset": 12,
       "type": "uint8",
       "description": "Operating mode (0=off, 1=heat, 2=hold)"
     },
 
     "smoker.setpoint": {
-      "region": "parameters",
+      "region": "read_write",
       "offset": 0,
       "type": "float32",
       "units": "degF",
-      "description": "Target smoker temperature"
+      "description": "Requested smoker temperature setpoint"
     }
   }
 }
-

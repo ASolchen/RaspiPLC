@@ -5,11 +5,13 @@ RaspiPLC Shared Memory Service
 Long-running daemon that:
 - Loads tag definitions from JSON
 - Opens and mmaps shared memory regions
-- Provides safe read/write access via IPC
+- Provides read/write access via IPC
 - Supports hot-reload of tag layout
 
-This service NEVER creates or resizes shared memory.
-That responsibility belongs to shm-core.
+IMPORTANT:
+- This service does NOT enforce read/write intent.
+- Logical permissions (read_only vs read_write)
+  are enforced by protocol adapters and runtime logic.
 """
 
 import os
@@ -18,23 +20,17 @@ import mmap
 import socket
 import struct
 import threading
-from pathlib import Path
 from typing import Dict, Any
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
 
 SOCKET_PATH = "/run/raspiplc-shm.sock"
 DEFAULT_TAGS_FILE = "/etc/raspiplc/tags.json"
 
 # ---------------------------------------------------------------------------
-# Type System (authoritative)
+# Type System
 # ---------------------------------------------------------------------------
 
-# name -> (struct_format, size)
 TYPES = {
-    "bool":    ("?", 1),
+    "bool":    ("B", 1),
     "uint8":   ("B", 1),
     "int8":    ("b", 1),
     "uint16":  ("H", 2),
@@ -46,12 +42,8 @@ TYPES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Data Structures
-# ---------------------------------------------------------------------------
-
 class Tag:
-    def __init__(self, name: str, region: str, offset: int, type_name: str, scale: float = None):
+    def __init__(self, name, region, offset, type_name, scale=None):
         if type_name not in TYPES:
             raise ValueError(f"Unknown type '{type_name}'")
 
@@ -63,29 +55,19 @@ class Tag:
         self.scale = scale
 
 
-# ---------------------------------------------------------------------------
-# SHM Service
-# ---------------------------------------------------------------------------
-
 class SHMService:
-    def __init__(self, tags_file: str):
+    def __init__(self, tags_file):
         self.tags_file = tags_file
         self.regions: Dict[str, mmap.mmap] = {}
         self.tags: Dict[str, Tag] = {}
         self.lock = threading.Lock()
-
-    # ---------------------------
-    # Startup
-    # ---------------------------
 
     def start(self):
         self._load_tags()
         self._open_socket()
         self._serve_forever()
 
-    # ---------------------------
-    # Tag Loading / Reload
-    # ---------------------------
+    # ------------------------------------------------------------------
 
     def _load_tags(self):
         with open(self.tags_file, "r") as f:
@@ -105,11 +87,11 @@ class SHMService:
         # Parse tags
         for tag_name, info in cfg["tags"].items():
             tag = Tag(
-                name=tag_name,
-                region=info["region"],
-                offset=info["offset"],
-                type_name=info["type"],
-                scale=info.get("scale"),
+                tag_name,
+                info["region"],
+                info["offset"],
+                info["type"],
+                info.get("scale"),
             )
 
             region_mm = new_regions[tag.region]
@@ -118,7 +100,6 @@ class SHMService:
 
             new_tags[tag_name] = tag
 
-        # Atomic swap
         with self.lock:
             for mm in self.regions.values():
                 mm.close()
@@ -128,9 +109,7 @@ class SHMService:
 
         print(f"[shm-service] Loaded {len(self.tags)} tags")
 
-    # ---------------------------
-    # IPC
-    # ---------------------------
+    # ------------------------------------------------------------------
 
     def _open_socket(self):
         if os.path.exists(SOCKET_PATH):
@@ -146,9 +125,11 @@ class SHMService:
     def _serve_forever(self):
         while True:
             conn, _ = self.sock.accept()
-            threading.Thread(target=self._handle_client, args=(conn,), daemon=True).start()
+            threading.Thread(
+                target=self._handle_client, args=(conn,), daemon=True
+            ).start()
 
-    def _handle_client(self, conn: socket.socket):
+    def _handle_client(self, conn):
         try:
             data = conn.recv(8192)
             if not data:
@@ -163,9 +144,7 @@ class SHMService:
         finally:
             conn.close()
 
-    # ---------------------------
-    # Request Handling
-    # ---------------------------
+    # ------------------------------------------------------------------
 
     def _handle_request(self, req: Dict[str, Any]) -> Dict[str, Any]:
         if "read" in req:
@@ -181,9 +160,7 @@ class SHMService:
 
         raise ValueError("Unknown command")
 
-    # ---------------------------
-    # Read / Write
-    # ---------------------------
+    # ------------------------------------------------------------------
 
     def _read_tags(self, names):
         result = {}
@@ -203,7 +180,7 @@ class SHMService:
 
         return result
 
-    def _write_tags(self, values: Dict[str, Any]):
+    def _write_tags(self, values):
         with self.lock:
             for name, value in values.items():
                 tag = self.tags[name]
@@ -216,17 +193,10 @@ class SHMService:
                 mm[tag.offset : tag.offset + tag.size] = packed
 
 
-# ---------------------------------------------------------------------------
-# Entry Point
-# ---------------------------------------------------------------------------
-
 def main():
     tags_file = os.environ.get("RASPIPLC_TAGS_FILE", DEFAULT_TAGS_FILE)
-
-    svc = SHMService(tags_file)
-    svc.start()
+    SHMService(tags_file).start()
 
 
 if __name__ == "__main__":
     main()
-

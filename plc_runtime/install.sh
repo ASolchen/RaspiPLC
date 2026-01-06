@@ -9,6 +9,7 @@ echo "[install] Installing plc-runtime..."
 mkdir -p "$INSTALL_DIR"
 
 cp plc_runtime.py "$INSTALL_DIR/"
+cp -r runtime "$INSTALL_DIR/"
 chmod +x "$INSTALL_DIR/plc_runtime.py"
 
 cp "$SERVICE_FILE" /etc/systemd/system/

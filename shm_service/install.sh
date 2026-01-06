@@ -1,35 +1,71 @@
 #!/bin/bash
 set -e
 
-SERVICE_NAME="shm-service.service"
-INSTALL_ROOT="/opt/raspiplc/shm-service"
-ETC_ROOT="/etc/raspiplc"
+SERVICE_NAME="shm-service"
+INSTALL_DIR="/opt/raspiplc/shm-service"
+SYSTEMD_DIR="/etc/systemd/system"
+CONFIG_DIR="/etc/raspiplc"
 
-echo "[install] Installing shm-service..."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Create directories
-mkdir -p "$INSTALL_ROOT"
-mkdir -p "$ETC_ROOT"
+echo "Installing shm-service..."
 
-# Copy service files
-cp shm_service.py "$INSTALL_ROOT/"
-cp shmctl.py      "$INSTALL_ROOT/"
-cp shmctrl.py     "$INSTALL_ROOT/"
-cp tags.example.json "$ETC_ROOT/tags.json"
+# ----------------------------------------------------------------------
+# Create system configuration directory
+# ----------------------------------------------------------------------
 
-# Make executables executable
-chmod +x "$INSTALL_ROOT/shm_service.py"
-chmod +x "$INSTALL_ROOT/shmctl.py"
-chmod +x "$INSTALL_ROOT/shmctrl.py"
+if [ ! -d "$CONFIG_DIR" ]; then
+    echo "Creating $CONFIG_DIR"
+    mkdir -p "$CONFIG_DIR"
+    chmod 755 "$CONFIG_DIR"
+fi
 
+# ----------------------------------------------------------------------
+# Install reference tags.json (only if missing)
+# ----------------------------------------------------------------------
+
+REFERENCE_TAGS="$SCRIPT_DIR/tags.json"
+TARGET_TAGS="$CONFIG_DIR/tags.json"
+
+if [ -f "$REFERENCE_TAGS" ]; then
+    if [ ! -f "$TARGET_TAGS" ]; then
+        echo "Installing reference tags.json to $TARGET_TAGS"
+        cp "$REFERENCE_TAGS" "$TARGET_TAGS"
+        chmod 644 "$TARGET_TAGS"
+    else
+        echo "tags.json already exists at $TARGET_TAGS"
+        echo "Leaving existing configuration untouched"
+    fi
+else
+    echo "WARNING: No reference tags.json found in shm-service directory"
+fi
+
+# ----------------------------------------------------------------------
+# Install service files
+# ----------------------------------------------------------------------
+
+echo "Installing shm-service files to $INSTALL_DIR"
+mkdir -p "$INSTALL_DIR"
+
+cp "$SCRIPT_DIR/shm_service.py" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/shmctl.py" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/shmctrl.py" "$INSTALL_DIR/"
+cp "$SCRIPT_DIR/tags.json" "$INSTALL_DIR/"
+
+chmod 755 "$INSTALL_DIR/shm_service.py"
+chmod 755 "$INSTALL_DIR/shmctl.py"
+chmod 644 "$INSTALL_DIR/shmctrl.py"
+chmod 644 "$INSTALL_DIR/tags.json"
+
+# ----------------------------------------------------------------------
 # Install systemd unit
-cp "$SERVICE_NAME" /etc/systemd/system/
+# ----------------------------------------------------------------------
 
-# Reload systemd
+echo "Installing systemd unit"
+cp "$SCRIPT_DIR/shm-service.service" "$SYSTEMD_DIR/"
+
 systemctl daemon-reload
-
-# Enable service (do not start yet)
 systemctl enable "$SERVICE_NAME"
+systemctl restart "$SERVICE_NAME"
 
-echo "[install] shm-service installed."
-echo "[install] Edit $ETC_ROOT/tags.json before starting."
+echo "shm-service installation complete."

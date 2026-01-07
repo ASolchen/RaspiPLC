@@ -27,8 +27,11 @@ for dev in ctx.getDeviceList():
 if handle is None:
     raise RuntimeError("Nano ESP32 not found")
 
-handle.claimInterface(INTERFACE_NUM)
+# Detach kernel driver if necessary (Linux)
+if handle.kernelDriverActive(INTERFACE_NUM):
+    handle.detachKernelDriver(INTERFACE_NUM)
 
+handle.claimInterface(INTERFACE_NUM)
 # Discover endpoints
 EP_OUT = None
 EP_IN  = None

@@ -1,77 +1,61 @@
 #include <Arduino.h>
-#include "tusb.h"
 #include <Adafruit_NeoPixel.h>
 
-/* ---------------- RGB ---------------- */
-
-#define RGB_PIN   21
+#define FRAME_SIZE 256
+#define RGB_PIN 18
 #define RGB_COUNT 1
+
+typedef struct __attribute__((packed)) {
+  uint8_t  enable;
+  uint8_t  r;
+  uint8_t  g;
+  uint8_t  b;
+  uint32_t counter;
+} out_assembly_t;
+
+typedef struct __attribute__((packed)) {
+  uint8_t  status;
+  uint8_t  _pad[3];
+  uint32_t echo;
+} in_assembly_t;
+
+uint8_t rx_buf[FRAME_SIZE];
+uint8_t tx_buf[FRAME_SIZE];
+
+out_assembly_t *outAsm = (out_assembly_t *)rx_buf;
+in_assembly_t  *inAsm  = (in_assembly_t  *)tx_buf;
 
 Adafruit_NeoPixel rgb(RGB_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
 
-/* ---------------- USB Buffers ---------------- */
-
-static uint8_t usb_out[256];
-static uint8_t usb_in[256];
-
-#pragma pack(push, 1)
-struct OutputAssembly {
-    uint8_t  enable;
-    uint8_t  r;
-    uint8_t  g;
-    uint8_t  b;
-    uint32_t counter;
-};
-
-struct InputAssembly {
-    uint8_t  status;
-    uint8_t  pad[3];
-    uint32_t echo;
-};
-#pragma pack(pop)
-
-OutputAssembly *outAsm = (OutputAssembly *)usb_out;
-InputAssembly  *inAsm  = (InputAssembly  *)usb_in;
-
-/* ---------------- Setup ---------------- */
-
 void setup() {
-    rgb.begin();
-    rgb.clear();
-    rgb.show();
+  Serial.begin(115200);
+  while (!Serial) delay(10);
 
-    memset(usb_out, 0, sizeof(usb_out));
-    memset(usb_in,  0, sizeof(usb_in));
+  rgb.begin();
+  rgb.clear();
+  rgb.show();
+
+  memset(rx_buf, 0, sizeof(rx_buf));
+  memset(tx_buf, 0, sizeof(tx_buf));
 }
-
-/* ---------------- Main Loop ---------------- */
 
 void loop() {
-    tud_task();  // TinyUSB background processing
+  if (Serial.available() >= FRAME_SIZE) {
+    Serial.readBytes(rx_buf, FRAME_SIZE);
 
-    // OUT assembly available?
-    if (tud_vendor_available() >= sizeof(usb_out)) {
-        tud_vendor_read(usb_out, sizeof(usb_out));
-
-        if (outAsm->enable) {
-            rgb.setPixelColor(
-                0,
-                rgb.Color(outAsm->r, outAsm->g, outAsm->b)
-            );
-        } else {
-            rgb.setPixelColor(0, 0);
-        }
-
-        rgb.show();
-
-        inAsm->status = 0;
-        inAsm->echo   = outAsm->counter;
+    if (outAsm->enable) {
+      rgb.setPixelColor(
+        0,
+        rgb.Color(outAsm->r, outAsm->g, outAsm->b)
+      );
+    } else {
+      rgb.setPixelColor(0, 0);
     }
+    rgb.show();
 
-    // IN endpoint has room?
-    if (tud_vendor_write_available() >= sizeof(usb_in)) {
-        tud_vendor_write(usb_in, sizeof(usb_in));
-        tud_vendor_flush();
-    }
+    inAsm->status = 0;
+    inAsm->echo   = outAsm->counter;
+
+    Serial.write(tx_buf, FRAME_SIZE);
+  }
 }
-

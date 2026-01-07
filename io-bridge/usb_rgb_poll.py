@@ -5,22 +5,23 @@ import time
 VID = 0x2341
 PID = 0x0070
 
-INTERFACE_NUM = 1  # MI_01
+INTERFACE_NUM = 1   # Vendor interface (MI_01)
 
 OUT_SIZE = 256
 IN_SIZE  = 256
 
-OUT_FMT = "<BBBBI"
-IN_FMT  = "<B3xI"
+OUT_FMT = "<BBBBI"   # enable, r, g, b, counter
+IN_FMT  = "<B3xI"    # status, pad, echo
 
 ctx = usb1.USBContext()
 handle = None
 device = None
 
+# Find device
 for dev in ctx.getDeviceList():
     if dev.getVendorID() == VID and dev.getProductID() == PID:
-        handle = dev.open()
         device = dev
+        handle = dev.open()
         break
 
 if handle is None:
@@ -28,6 +29,7 @@ if handle is None:
 
 handle.claimInterface(INTERFACE_NUM)
 
+# Discover endpoints
 EP_OUT = None
 EP_IN  = None
 
@@ -50,7 +52,7 @@ for cfg in device:
                     EP_OUT = addr
 
 if EP_OUT is None or EP_IN is None:
-    raise RuntimeError("Could not find vendor bulk endpoints")
+    raise RuntimeError("Could not find both IN and OUT endpoints")
 
 print(f"Using EP_OUT=0x{EP_OUT:02X}, EP_IN=0x{EP_IN:02X}")
 print("Connected to Nano ESP32 USB I/O")
@@ -64,17 +66,20 @@ try:
         r, g, b = colors[color_idx]
 
         out_buf = bytearray(OUT_SIZE)
-        struct.pack_into(OUT_FMT, out_buf, 0, 1, r, g, b, counter)
+        struct.pack_into(
+            OUT_FMT,
+            out_buf,
+            0,
+            1,          # enable
+            r, g, b,
+            counter
+        )
 
-        handle.bulkWrite(EP_OUT, out_buf, timeout=200)
+        handle.bulkWrite(EP_OUT, out_buf, timeout=100)
 
-        try:
-            in_buf = handle.bulkRead(EP_IN, IN_SIZE, timeout=200)
-        except usb1.USBErrorTimeout:
-            print("IN timeout – retrying")
-            continue
-
+        in_buf = handle.bulkRead(EP_IN, IN_SIZE, timeout=100)
         status, echo = struct.unpack_from(IN_FMT, in_buf, 0)
+
         print(f"status={status} echo={echo}")
 
         counter += 1

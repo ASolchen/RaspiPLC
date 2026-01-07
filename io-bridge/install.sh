@@ -52,19 +52,21 @@ source "$VENV_DIR/bin/activate"
 echo "[3/5] Installing Python packages..."
 
 pip install --upgrade pip
-pip install libusb1
+pip install libusb1 pyserial
 
 # Verify
 python - << 'EOF'
 import usb1
+import serial
 print("python-usb1 OK")
+print("pyserial OK")
 EOF
 
 # ---------------- udev Rule ----------------
 
 echo "[4/5] Installing udev rule..."
 
-RULE_TEXT="SUBSYSTEM==\"usb\", ATTR{idVendor}==\"$USB_VID\", ATTR{idProduct}==\"$USB_PID\", MODE=\"0666\""
+RULE_TEXT="SUBSYSTEM==\"tty\", ATTRS{idVendor}==\"$USB_VID\", ATTRS{idProduct}==\"$USB_PID\", MODE=\"0666\""
 
 if [[ -f "$UDEV_RULE" ]]; then
     if grep -q "$USB_VID" "$UDEV_RULE"; then
@@ -85,7 +87,7 @@ sudo udevadm trigger
 
 echo "[5/5] Done."
 echo
-echo "To use the USB IO bridge:"
+echo "To use the USB CDC IO bridge:"
 echo "  source $VENV_DIR/bin/activate"
 echo "  python usb_rgb_poll.py"
 echo

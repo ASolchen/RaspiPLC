@@ -41,4 +41,4 @@ while True:
 
     counter += 1
     idx = (idx + 1) % len(colors)
-    time.sleep(0.5)
+    time.sleep(0.005)

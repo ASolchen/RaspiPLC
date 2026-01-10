@@ -1,13 +1,36 @@
 import serial
-import struct
 import time
+import ctypes
+import struct
 
-PORT = "/dev/ttyACM0"   # adjust if needed
-BAUD = 115200
+PORT = "/dev/ttyACM1"     # or /dev/nano_esp32 if using udev symlink
+BAUD = 1500000             # cosmetic for USB CDC
 FRAME_SIZE = 256
+MAGIC = 0xDEADBEEF
 
-OUT_FMT = "<BBBBI"
-IN_FMT  = "<B3xI"
+# ---------------- ctypes assemblies ----------------
+
+class OutAssembly(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("magic",        ctypes.c_uint32),
+        ("watchdog_out", ctypes.c_uint8),
+        ("command_bits", ctypes.c_uint32),
+        ("setpoint",     ctypes.c_float),
+    ]
+
+
+class InAssembly(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("magic",        ctypes.c_uint32),
+        ("watchdog_in",  ctypes.c_uint8),
+        ("temp1",        ctypes.c_float),
+        ("temp2",        ctypes.c_float),
+        ("heater1",      ctypes.c_float),
+        ("heater2",      ctypes.c_float),
+    ]
+# ---------------- serial setup ----------------
 
 ser = serial.Serial(
     PORT,
@@ -16,29 +39,41 @@ ser = serial.Serial(
     write_timeout=1
 )
 
-counter = 0
-colors = [(255,0,0), (0,255,0), (0,0,255)]
-idx = 0
+print(f"Connected to {PORT}")
+time.sleep(0.5)
 
-print("Connected to Nano ESP32 CDC")
+ser.reset_input_buffer()
+ser.reset_output_buffer()
+
+# ---------------- buffers ----------------
+
+out_frame = bytearray(FRAME_SIZE)
+in_frame  = bytearray(FRAME_SIZE)
+
+outAsm = OutAssembly.from_buffer(out_frame)
+inAsm  = InAssembly.from_buffer(in_frame)
+
+
+print("Polling Nano ESP32...\n")
 
 while True:
-    r,g,b = colors[idx]
-
-    out_buf = bytearray(FRAME_SIZE)
-    struct.pack_into(OUT_FMT, out_buf, 0, 1, r, g, b, counter)
-
-    ser.write(out_buf)
+    # ---------- populate OUT assembly ----------
+    outAsm.magic = MAGIC
+    outAsm.watchdog_out = (inAsm.watchdog_in + 1) & 0xFF
+    ser.write(out_frame)
     ser.flush()
-
-    in_buf = ser.read(FRAME_SIZE)
-    if len(in_buf) != FRAME_SIZE:
-        print("Short read")
+    n = ser.readinto(in_frame)
+    if (n != FRAME_SIZE) or (inAsm.magic != MAGIC):
+        print("Short read / out of sync")
+        ser.reset_input_buffer()
         continue
 
-    status, echo = struct.unpack_from(IN_FMT, in_buf, 0)
-    print(f"status={status} echo={echo}")
 
-    counter += 1
-    idx = (idx + 1) % len(colors)
+    print(
+        f"wd_in={inAsm.watchdog_in:3d} | "
+        f"temp1={inAsm.temp1:7.2f} | "
+        f"temp2={inAsm.temp2:7.2f}"
+    )
+
+
     time.sleep(0.005)

@@ -104,13 +104,13 @@ void control_loop(){
     task_last = millis(); //reset the timer
     //need to interleave the temp since the MAX6675 need +200mS to update temp
     if(task_counter == 0){ inAsm->temp1 = tc1.readFahrenheit();} //read SPI;
-    if(task_counter == 1){ inAsm->temp2 = tc2.readFahrenheit();} //read SPI;
+    if(task_counter == 5){ inAsm->temp2 = tc2.readFahrenheit();} //read SPI;
     //do plc (PID) stuff here
     //update the outputs
     analogWrite(HEATER1_PIN, 0.0);
     analogWrite(HEATER2_PIN, 0.0);
     task_counter += 1;
-    task_counter %= 5;
+    task_counter %= 10;
   }
 }
 

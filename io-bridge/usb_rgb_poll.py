@@ -3,7 +3,7 @@ import time
 import ctypes
 import struct
 
-PORT = "/dev/ttyACM1"     # or /dev/nano_esp32 if using udev symlink
+PORT = "/dev/ttyACM0"     # or /dev/nano_esp32 if using udev symlink
 BAUD = 1500000             # cosmetic for USB CDC
 FRAME_SIZE = 256
 MAGIC = 0xDEADBEEF
@@ -58,7 +58,7 @@ while True:
     ser.reset_input_buffer()
     ser.reset_output_buffer()
     time.sleep(0.1)
-    for x in range(100):
+    for x in range(10000):
         # ---------- populate OUT assembly ----------
         outAsm.magic = MAGIC
         outAsm.watchdog_out = inAsm.watchdog_in & 0xFF #increments in the arduino

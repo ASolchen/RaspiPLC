@@ -61,7 +61,7 @@ PIDE tic2(1.0f,0.1f,0.0f,50.0f,400.0f);
 uint8_t blink;
 uint8_t comm_ok;
 uint8_t task_counter;
-uint16_t task_last;
+uint32_t task_last;
 
 void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
@@ -126,15 +126,10 @@ void handle_commands(){
 
 void control_loop(){
   uint32_t dt;
-  uint32_t now;
-  now = millis();
+  uint32_t now = millis();
   dt = now - task_last;
-  if (dt > 10000){
-    dt = 0; //something crazy happened, reset and skip
-    task_last = now;
-  }
-  if (dt > UPDATE_TM){
-    task_last = now; //reset the timer
+  if (now - task_last >= UPDATE_TM){
+    task_last += UPDATE_TM; //reset the timer
     //need to interleave the temp since the MAX6675 need +200mS to update temp
     if(task_counter == 0){
       inAsm->temp1 = tc1.readF();//read SPI
@@ -143,8 +138,6 @@ void control_loop(){
     if(task_counter == 5){
       inAsm->temp2 = tc2.readF();//read SPI
       inAsm->heater2 = tic2.update(inAsm->temp2); //update TIC1 PID
-
-
     } 
     
     //do hmi stuff here
@@ -156,10 +149,10 @@ void control_loop(){
       if (task_counter == 0){
         digitalWrite(RED_PIN, blink); //blink red LED = bad comms
         blink = ! blink;
-        Serial.print("Temp2: ");
-        Serial.print(inAsm->temp2);
-        Serial.print(" Dt: ");
-        Serial.println(dt);
+        // Serial.print("Temp2: ");
+        // Serial.print(inAsm->temp2);
+        // Serial.print(" Dt: ");
+        // Serial.println(dt);
       }
     }
 

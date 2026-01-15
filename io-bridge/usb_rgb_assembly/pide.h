@@ -1,47 +1,53 @@
 #pragma once
-
 #include <stdint.h>
+
+typedef enum {
+    PID_NOP  = -1, //no-op value
+    PID_OFF  = 0,
+    PID_MAN  = 1,
+    PID_AUTO = 2
+} pide_mode_t;
+
+typedef struct {
+    float set_Sp; //set all of these on the other end (Python)
+    float set_Cv;
+    float set_Kd;
+    float set_Kp;
+    float set_Ki;
+    float set_PvMin;
+    float set_PvMax;
+    uint8_t set_Mode;
+} pide_ctrl_t;
+
+typedef struct {
+    /* ---- Runtime / operator-facing ---- */
+    float Sp;
+    float Pv;
+    float Cv;
+    uint8_t Mode;
+    /* ---- Tuning / config ---- */
+    float Kp;
+    float Ki;
+    float Kd;
+    float PvMin;
+    float PvMax;
+    float Err;
+} pide_stat_t;
 
 class PIDE {
 public:
     // Constructor
-    PIDE(
-        float Kp,
-        float Ki,
-        float Kd,
-        float PvMin = 0.0f,
-        float PvMax = 100.0f
-    );
+    PIDE(pide_stat_t* stat, pide_ctrl_t* ctrl);
 
-    // Configuration
-    void setTunings(float Kp, float Ki, float Kd);
-    void setSp(float sp);
+    // Configuration and Control
+    void handleCmds();
 
     // Main call: pass PV, get CV
     float update(float pv);
 
-    // Accessors
-    float getCV() const { return Cv; }
-    float getError() const { return Err; }
-
-    // Reset controller state (manual CV)
-    void reset(float cv = 0.0f);
-
 private:
-    // Tunings
-    float Kp;
-    float Ki;
-    float Kd;
-
-    // Scaling
-    float PvMin;
-    float PvMax;
-
-    // State
-    float Sp;
-    float Pv;
-    float Err;
-    float Cv;
+    pide_stat_t *stat;
+    pide_ctrl_t *ctrl;
 
     // Velocity-form history
     float Err_1;

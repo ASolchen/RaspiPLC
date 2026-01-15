@@ -1,8 +1,8 @@
 #include <Arduino.h>
 #include "max6675.h"
+#include "usb_comm.h"
 #include "pide.h"
-#define FRAME_SIZE 256
-#define MAGIC 0xDEADBEEF
+
 
 #define SCK_PIN 8
 #define MISO_PIN 12
@@ -14,50 +14,20 @@
 #define GREEN_PIN 15
 #define BLUE_PIN 16
 
-typedef union {
-    uint32_t raw;
-
-    struct {
-        uint32_t cmd_00 : 1;
-        uint32_t cmd_01 : 1;
-        uint32_t cmd_02 : 1;// etc.
-    } bits;
-
-} command_bits_t;
-
-
-typedef struct __attribute__((packed)) {
-  uint32_t magic;
-  uint8_t  watchdog_out;
-  command_bits_t command_bits;
-  float setpoint;
-} out_assembly_t;
-
-typedef struct __attribute__((packed)) {
-  uint32_t magic;
-  uint8_t  watchdog_in;
-  float temp1;
-  float temp2;
-  float heater1;
-  float heater2;
-} in_assembly_t;
-
-
 
 const uint16_t UPDATE_TM = 50;
 //create buffers
-uint8_t rx_buf[FRAME_SIZE];
-uint8_t tx_buf[FRAME_SIZE];
+uint8_t rx_buf[USB_FRAME_SIZE];
+uint8_t tx_buf[USB_FRAME_SIZE];
 //set pointers of in and out assemblies to the buffers
-out_assembly_t *outAsm = (out_assembly_t *)rx_buf;
-in_assembly_t  *inAsm  = (in_assembly_t  *)tx_buf;
+usb_comm_out_t *outAsm = (usb_comm_out_t *)rx_buf;
+usb_comm_in_t  *inAsm  = (usb_comm_in_t  *)tx_buf;
 const uint32_t TIMEOUT_MS = 500;
 uint32_t timeout_last;
 MAX6675 tc1(SCK_PIN, TEMP1_SELECT_PIN, MISO_PIN);
 MAX6675 tc2(SCK_PIN, TEMP2_SELECT_PIN, MISO_PIN);
-PIDE tic1(1.0f,0.1f,0.0f,50.0f,400.0f);
+PIDE tic1(&inAsm->htr1_pide_stat, &outAsm->htr1_pide_ctrl); //smoker temp control
 
-PIDE tic2(1.0f,0.1f,0.0f,50.0f,400.0f);
 uint8_t blink;
 uint8_t comm_ok;
 uint8_t task_counter;
@@ -79,8 +49,16 @@ void setup() {
   //init buffers
   memset(rx_buf, 0x00, sizeof(rx_buf));
   memset(tx_buf, 0x00, sizeof(tx_buf));
-  tic1.setSp(200.0);
-  tic2.setSp(100.0);
+  //init PIDE
+  outAsm->htr1_pide_ctrl.set_Sp = 100.0;
+  outAsm->htr1_pide_ctrl.set_Kp = 2.0;
+  outAsm->htr1_pide_ctrl.set_Ki = 0.1;
+  outAsm->htr1_pide_ctrl.set_Kd = 0.0;
+  outAsm->htr1_pide_ctrl.set_Mode = PID_AUTO;
+  outAsm->htr1_pide_ctrl.set_Cv = 0.0;
+  outAsm->htr1_pide_ctrl.set_PvMin = 0.0;
+  outAsm->htr1_pide_ctrl.set_PvMax = 500.0;
+
 }
 
 void control_loop();
@@ -96,16 +74,15 @@ void loop() {
 
 void handle_comms(){
   bool magic_ok = true;
-  inAsm->magic = MAGIC;
+  inAsm->magic = USB_FRAME_MAGIC;
   
 
-  if (Serial.available() >= FRAME_SIZE) {   
-    Serial.readBytes(rx_buf, FRAME_SIZE);
-    magic_ok = (outAsm->magic == MAGIC);
+  if (Serial.available() >= USB_FRAME_SIZE) {   
+    Serial.readBytes(rx_buf, USB_FRAME_SIZE);
+    magic_ok = (outAsm->magic == USB_FRAME_MAGIC);
     if (magic_ok){
       inAsm->watchdog_in = outAsm->watchdog_out + 1; //send back incremented watchdog
-      Serial.write(tx_buf, FRAME_SIZE);
-      //Serial.flush();
+      Serial.write(tx_buf, USB_FRAME_SIZE);
       digitalWrite(RED_PIN, HIGH); //turn off red LED
       digitalWrite(GREEN_PIN, blink); // blink green LED = good comms
       blink = ! blink;
@@ -133,11 +110,12 @@ void control_loop(){
     //need to interleave the temp since the MAX6675 need +200mS to update temp
     if(task_counter == 0){
       inAsm->temp1 = tc1.readF();//read SPI
-      inAsm->heater1 = tic1.update(inAsm->temp1); //update TIC1 PID
+      tic1.update(inAsm->temp1); //update TIC1 PID
+      inAsm->heater1 = inAsm->htr1_pide_stat.Cv;
+      inAsm->heater2 = inAsm->htr1_pide_stat.Cv;
     } 
     if(task_counter == 5){
       inAsm->temp2 = tc2.readF();//read SPI
-      inAsm->heater2 = tic2.update(inAsm->temp2); //update TIC1 PID
     } 
     
     //do hmi stuff here
@@ -149,10 +127,16 @@ void control_loop(){
       if (task_counter == 0){
         digitalWrite(RED_PIN, blink); //blink red LED = bad comms
         blink = ! blink;
-        // Serial.print("Temp2: ");
-        // Serial.print(inAsm->temp2);
-        // Serial.print(" Dt: ");
-        // Serial.println(dt);
+        Serial.print("SP ");
+        Serial.print(inAsm->htr1_pide_stat.Sp);
+        Serial.print(" PV ");
+        Serial.print(inAsm->htr1_pide_stat.Pv);
+        Serial.print(" CV ");
+        Serial.print(inAsm->htr1_pide_stat.Cv);
+        Serial.print(" ERR ");
+        Serial.print(inAsm->htr1_pide_stat.Err);
+        Serial.println("");
+
       }
     }
 

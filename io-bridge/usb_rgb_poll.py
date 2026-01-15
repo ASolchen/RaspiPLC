@@ -39,8 +39,6 @@ PIDE_STAT_BYTES = FRAME_SIZE - IN_HEADER_SIZE  # 232 bytes
 
 class PideStat(ctypes.LittleEndianStructure):
     """
-    We only *need* the first four floats, because that's what Arduino prints:
-      Sp, Pv, Cv, Err
 
     The rest is padded out to the full size of the remaining frame so offsets stay correct.
     """
@@ -49,8 +47,16 @@ class PideStat(ctypes.LittleEndianStructure):
         ("Sp",  ctypes.c_float),
         ("Pv",  ctypes.c_float),
         ("Cv",  ctypes.c_float),
+        ("Kp", ctypes.c_float),
+        ("Ki", ctypes.c_float),
+        ("Kd", ctypes.c_float),
+        ("PvMin", ctypes.c_float),
+        ("PvMax", ctypes.c_float),
         ("Err", ctypes.c_float),
-        ("_pad", ctypes.c_uint8 * (PIDE_STAT_BYTES - 16)),
+        ("Mode", ctypes.c_uint8),
+        ("_pad37", ctypes.c_uint8),
+        ("_pad38", ctypes.c_uint8),
+        ("_pad39", ctypes.c_uint8),
     ]
 
 
@@ -84,7 +90,7 @@ class PideCtrl(ctypes.LittleEndianStructure):
     Your provided struct:
       float set_Sp;
       float set_Cv;
-      float set_Kd;     (note: you have Kd twice in some older snippet; using the one you posted here)
+      float set_Kd;  
       float set_Kp;
       float set_Ki;
       float set_PvMin;
@@ -135,16 +141,16 @@ with serial.Serial(PORT, BAUD, timeout=1, write_timeout=1) as ser:
     time.sleep(0.1)
 
     # Initialize all "set_" floats to NOP so you don't accidentally apply stale values
-    outAsm.htr1_pide_ctrl.set_Sp = 200.0
+    outAsm.htr1_pide_ctrl.set_Sp = NOP_FLOAT_VALUE
     outAsm.htr1_pide_ctrl.set_Cv = NOP_FLOAT_VALUE
     outAsm.htr1_pide_ctrl.set_Kd = NOP_FLOAT_VALUE
-    outAsm.htr1_pide_ctrl.set_Kp = 2.0
-    outAsm.htr1_pide_ctrl.set_Ki = 0.1
-    outAsm.htr1_pide_ctrl.set_PvMin = 0.0
-    outAsm.htr1_pide_ctrl.set_PvMax = 500.0
-    outAsm.htr1_pide_ctrl.set_Mode = 2  # PID_OFF by default
+    outAsm.htr1_pide_ctrl.set_Kp = NOP_FLOAT_VALUE
+    outAsm.htr1_pide_ctrl.set_Ki = NOP_FLOAT_VALUE
+    outAsm.htr1_pide_ctrl.set_PvMin = NOP_FLOAT_VALUE
+    outAsm.htr1_pide_ctrl.set_PvMax = NOP_FLOAT_VALUE
+    outAsm.htr1_pide_ctrl.set_Mode = -1  # PID_OFF by default
 
-    for _ in range(1000000):
+    for count in range(1000000):
         # ---------- populate OUT assembly ----------
         outAsm.magic = MAGIC
 
@@ -153,7 +159,7 @@ with serial.Serial(PORT, BAUD, timeout=1, write_timeout=1) as ser:
 
         # (Optional) command bits
         outAsm.command_bits.raw = 0
-
+        #outAsm.htr1_pide_ctrl.set_Sp = count * 0.01
         # ---------- exchange ----------
         ser.write(out_frame)
         ser.flush()
@@ -170,6 +176,7 @@ with serial.Serial(PORT, BAUD, timeout=1, write_timeout=1) as ser:
 
         # ---------- Arduino-style print ----------
         ps = inAsm.htr1_pide_stat
-        print(f"SP {ps.Sp} PV {ps.Pv} CV {ps.Cv} ERR {ps.Err}")
+        #print(f"SP {ps.Sp} PV {ps.Pv} CV {ps.Cv} ERR {ps.Err} HTR1 {inAsm.temp1}")
+        print(f"{ps.Sp}, {ps.Pv}, {ps.Cv}, {ps.Kp}, {ps.Ki}, {ps.Kd},")
 
-        time.sleep(0.005)
+        time.sleep(0.2)

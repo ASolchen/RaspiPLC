@@ -11,9 +11,9 @@ typedef enum {
 typedef struct {
     float set_Sp; //set all of these on the other end (Python)
     float set_Cv;
-    float set_Kd;
     float set_Kp;
     float set_Ki;
+    float set_Kd;
     float set_PvMin;
     float set_PvMax;
     uint8_t set_Mode;
@@ -24,14 +24,17 @@ typedef struct {
     float Sp;
     float Pv;
     float Cv;
-    uint8_t Mode;
-    /* ---- Tuning / config ---- */
     float Kp;
     float Ki;
     float Kd;
     float PvMin;
     float PvMax;
     float Err;
+    uint8_t Mode;
+    uint8_t _pad37;
+    uint8_t _pad38;
+    uint8_t _pad39;
+
 } pide_stat_t;
 
 class PIDE {

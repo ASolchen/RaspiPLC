@@ -2,7 +2,8 @@ import serial
 import time
 import ctypes
 
-PORT = "/dev/ttyACM0"      # or /dev/nano_esp32 if using udev symlink
+#PORT = "/dev/ttyACM0"      # or /dev/nano_esp32 if using udev symlink (linux)
+PORT = "COM6"      # or /dev/nano_esp32 if using udev symlink
 BAUD = 1500000             # cosmetic for USB CDC
 FRAME_SIZE = 256
 MAGIC = 0xDEADBEEF

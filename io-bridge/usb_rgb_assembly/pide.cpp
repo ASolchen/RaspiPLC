@@ -76,9 +76,10 @@ void PIDE::handleCmds() {
 
 float PIDE::update(float pv) {
     handleCmds();
+    stat->Pv = pv; //always update pv
     if (stat->Mode == PID_OFF){ //cv zero and sp tracking
         stat->Cv = 0.0;
-        stat->Pv = pv;
+        
         stat->Sp = stat->Pv;
         return stat->Cv;
     }
@@ -88,10 +89,9 @@ float PIDE::update(float pv) {
     }
     if (stat->Mode != PID_AUTO){ //someone did something stupid
         stat->Cv = 0.0;
-        stat->Mode = PID_OFF;
+        stat->Mode = PID_AUTO;
         return stat->Cv;
     }
-    stat->Pv = pv;
     uint32_t now = millis();
 
     // First call: initialize timing

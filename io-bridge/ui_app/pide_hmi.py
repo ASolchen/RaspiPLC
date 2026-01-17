@@ -4,11 +4,10 @@ import threading
 import ctypes
 import serial
 from collections import deque
-#pip install pyqt6 pyqtgraph pyserial
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QDoubleSpinBox, QComboBox
+    QLabel, QDoubleSpinBox, QComboBox
 )
 from PyQt6.QtCore import QTimer
 
@@ -17,66 +16,82 @@ import pyqtgraph as pg
 
 # ---------------- CONFIG ----------------
 
-PORT = "COM6"
-BAUD = 1500000
+PORT = "COM8"
+BAUD = 500000
 FRAME_SIZE = 256
 MAGIC = 0xDEADBEEF
 
-NOP_FLOAT = -999.9
-
-HISTORY_SEC = 3600
+NOP_FLOAT_VALUE = -999.9
+HISTORY_SEC = 60
 PLOT_HZ = 5
 
 
-# ---------------- ctypes (MATCH YOUR WORKING FILE) ----------------
+# ---------------- ctypes (MATCH usb_rgb_poll.py EXACTLY) ----------------
 
-class PideStat(ctypes.Structure):
+class UsbCommCmdBits(ctypes.LittleEndianStructure):
+    _pack_ = 1
     _fields_ = [
-        ("Sp", ctypes.c_float),
-        ("Pv", ctypes.c_float),
-        ("Cv", ctypes.c_float),
-        ("Kp", ctypes.c_float),
-        ("Ki", ctypes.c_float),
-        ("Kd", ctypes.c_float),
+        ("raw", ctypes.c_uint32),
+    ]
+
+
+class PideStat(ctypes.LittleEndianStructure):
+    _pack_ = 1
+    _fields_ = [
+        ("Sp",    ctypes.c_float),
+        ("Pv",    ctypes.c_float),
+        ("Cv",    ctypes.c_float),
+        ("Kp",    ctypes.c_float),
+        ("Ki",    ctypes.c_float),
+        ("Kd",    ctypes.c_float),
         ("PvMin", ctypes.c_float),
         ("PvMax", ctypes.c_float),
-        ("Err", ctypes.c_float),
-        ("Mode", ctypes.c_uint8),
+        ("Err",   ctypes.c_float),
+        ("Mode",  ctypes.c_uint8),
+        ("_pad1", ctypes.c_uint8),
+        ("_pad2", ctypes.c_uint8),
+        ("_pad3", ctypes.c_uint8),
     ]
 
 
-class InAssembly(ctypes.Structure):
+class InAssembly(ctypes.LittleEndianStructure):
+    _pack_ = 1
     _fields_ = [
-        ("magic", ctypes.c_uint32),
-        ("watchdog", ctypes.c_uint8),
-        ("_pad", ctypes.c_uint8 * 3),
-        ("temp1", ctypes.c_float),
-        ("temp2", ctypes.c_float),
-        ("heater1", ctypes.c_float),
-        ("heater2", ctypes.c_float),
-        ("pide", PideStat),
+        ("magic",       ctypes.c_uint32),
+        ("watchdog_in", ctypes.c_uint8),
+        ("pad5",        ctypes.c_uint8),
+        ("pad6",        ctypes.c_uint8),
+        ("pad7",        ctypes.c_uint8),
+        ("temp1",       ctypes.c_float),
+        ("temp2",       ctypes.c_float),
+        ("heater1",     ctypes.c_float),
+        ("heater2",     ctypes.c_float),
+        ("htr1_pide_stat", PideStat),
     ]
 
 
-class PideCtrl(ctypes.Structure):
+class PideCtrl(ctypes.LittleEndianStructure):
+    _pack_ = 1
     _fields_ = [
-        ("set_Sp", ctypes.c_float),
-        ("set_Pv", ctypes.c_float),
-        ("set_Kd", ctypes.c_float),
-        ("set_Kp", ctypes.c_float),
-        ("set_Ki", ctypes.c_float),
+        ("set_Sp",    ctypes.c_float),
+        ("set_Cv",    ctypes.c_float),
+        ("set_Kd",    ctypes.c_float),
+        ("set_Kp",    ctypes.c_float),
+        ("set_Ki",    ctypes.c_float),
         ("set_PvMin", ctypes.c_float),
         ("set_PvMax", ctypes.c_float),
-        ("set_Mode", ctypes.c_uint8),
+        ("set_Mode",  ctypes.c_uint8),
+        ("_pad", ctypes.c_uint8 * (256 - (4 + 1 + 4) - (7 * 4 + 1))),
     ]
 
 
-class OutAssembly(ctypes.Structure):
+class OutAssembly(ctypes.LittleEndianStructure):
+    _pack_ = 1
     _fields_ = [
-        ("magic", ctypes.c_uint32),
-        ("watchdog", ctypes.c_uint8),
-        ("_pad", ctypes.c_uint8 * 3),
-        ("pide", PideCtrl),
+        ("magic",        ctypes.c_uint32),
+        ("watchdog_out", ctypes.c_uint8),
+        ("command_bits", UsbCommCmdBits),
+        ("htr1_pide_ctrl", PideCtrl),
     ]
 
 
@@ -88,28 +103,52 @@ class UsbWorker(threading.Thread):
         self.running = True
 
         self.out_buf = bytearray(FRAME_SIZE)
-        self.in_buf = bytearray(FRAME_SIZE)
+        self.in_buf  = bytearray(FRAME_SIZE)
 
         self.outAsm = OutAssembly.from_buffer(self.out_buf)
-        self.inAsm = InAssembly.from_buffer(self.in_buf)
+        self.inAsm  = InAssembly.from_buffer(self.in_buf)
 
-        # Initialize all set_* fields to NOP (floats) and Mode to a sane default
-        for name, ctype in PideCtrl._fields_:
-            if ctype is ctypes.c_uint8:
-                setattr(self.outAsm.pide, name, 2)          # PID_OFF by default
-            elif ctype is ctypes.c_float:
-                setattr(self.outAsm.pide, name, 55.5)#NOP_FLOAT)  # sentinel for "no update"
-            else:
-                # fallback: try zero
-                setattr(self.outAsm.pide, name, 0)
+        # Initialize outbound values to NOP
+        self.outAsm.htr1_pide_ctrl.set_Sp = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_Cv = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_Kd = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_Kp = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_Ki = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_PvMin = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_PvMax = NOP_FLOAT_VALUE
+        self.outAsm.htr1_pide_ctrl.set_Mode = 0xFF
 
+        self.rx = bytearray()
 
     def run(self):
-        with serial.Serial(PORT, BAUD, timeout=1) as ser:
+        with serial.Serial(PORT, BAUD, timeout=0.1, write_timeout=1) as ser:
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
+            time.sleep(0.2)
+
             while self.running:
+                # ----- transmit -----
                 self.outAsm.magic = MAGIC
+                self.outAsm.watchdog_out = self.inAsm.watchdog_in & 0xFF
+                self.outAsm.command_bits.raw = 0
+
                 ser.write(self.out_buf)
-                ser.readinto(self.in_buf)
+                ser.flush()
+
+                # ----- receive / accumulate -----
+                self.rx += ser.read(128)
+
+                # ----- parse frames -----
+                while len(self.rx) >= FRAME_SIZE:
+                    magic = int.from_bytes(self.rx[0:4], "little")
+                    if magic != MAGIC:
+                        self.rx.pop(0)
+                        continue
+
+                    frame = self.rx[:FRAME_SIZE]
+                    self.rx = self.rx[FRAME_SIZE:]
+                    self.in_buf[:] = frame
+
                 time.sleep(0.01)
 
     def stop(self):
@@ -121,7 +160,7 @@ class UsbWorker(threading.Thread):
 class PideHMI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PIDE HMI (PyQt6)")
+        self.setWindowTitle("PIDE HMI")
 
         self.worker = UsbWorker()
         self.worker.start()
@@ -142,7 +181,23 @@ class PideHMI(QWidget):
     def _build_ui(self):
         layout = QVBoxLayout(self)
 
-        self.plot = pg.PlotWidget(title="Last Hour")
+        # ---------- STATUS BAR ----------
+        status = QHBoxLayout()
+
+        self.lbl_mode = QLabel("Mode: --")
+        self.lbl_kp   = QLabel("Kp: --")
+        self.lbl_ki   = QLabel("Ki: --")
+        self.lbl_kd   = QLabel("Kd: --")
+
+        for lbl in (self.lbl_mode, self.lbl_kp, self.lbl_ki, self.lbl_kd):
+            lbl.setMinimumWidth(120)
+            status.addWidget(lbl)
+
+        status.addStretch()
+        layout.addLayout(status)
+
+        # ---------- PLOT ----------
+        self.plot = pg.PlotWidget(title=f"Last {HISTORY_SEC}s")
         self.plot.addLegend()
         self.plot.showGrid(x=True, y=True)
 
@@ -152,6 +207,7 @@ class PideHMI(QWidget):
 
         layout.addWidget(self.plot)
 
+        # ---------- CONTROLS ----------
         ctrl = QHBoxLayout()
 
         self.sp_box = self._spin("SP", ctrl, self.set_sp)
@@ -179,36 +235,33 @@ class PideHMI(QWidget):
 
     # ---------- setters ----------
 
-    def set_sp(self, v):
-        self.worker.outAsm.pide.set_Sp = v
-
-    def set_cv(self, v):
-        self.worker.outAsm.pide.set_Cv = v
-
-    def set_kp(self, v):
-        self.worker.outAsm.pide.set_Kp = v
-
-    def set_ki(self, v):
-        self.worker.outAsm.pide.set_Ki = v
-
-    def set_kd(self, v):
-        self.worker.outAsm.pide.set_Kd = v
-
-    def set_mode(self, idx):
-        self.worker.outAsm.pide.set_Mode = idx
+    def set_sp(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Sp = float(v)
+    def set_cv(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Cv = float(v)
+    def set_kp(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Kp = float(v)
+    def set_ki(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Ki = float(v)
+    def set_kd(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Kd = float(v)
+    def set_mode(self, idx): self.worker.outAsm.htr1_pide_ctrl.set_Mode = idx & 0xFF
 
     # ---------- update ----------
 
     def update_ui(self):
         now = time.time() - self.t0
-        stat = self.worker.inAsm.pide
+        stat = self.worker.inAsm.htr1_pide_stat
 
+        # update status labels
+        self.lbl_mode.setText(f"Mode: {stat.Mode}")
+        self.lbl_kp.setText(f"Kp: {stat.Kp:.3f}")
+        self.lbl_ki.setText(f"Ki: {stat.Ki:.3f}")
+        self.lbl_kd.setText(f"Kd: {stat.Kd:.3f}")
+
+        # append plot data
         self.ts.append(now)
         self.sp.append(stat.Sp)
         self.pv.append(stat.Pv)
         self.cv.append(stat.Cv)
 
-        while self.ts and self.ts[0] < now - HISTORY_SEC:
+        cutoff = now - HISTORY_SEC
+        while self.ts and self.ts[0] < cutoff:
             self.ts.popleft()
             self.sp.popleft()
             self.pv.popleft()
@@ -228,6 +281,6 @@ class PideHMI(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     w = PideHMI()
-    w.resize(1000, 600)
+    w.resize(1100, 650)
     w.show()
     sys.exit(app.exec())

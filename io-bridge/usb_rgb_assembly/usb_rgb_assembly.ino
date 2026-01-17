@@ -4,15 +4,15 @@
 #include "pide.h"
 
 
-#define SCK_PIN 8
-#define MISO_PIN 12
+#define SCK_PIN 18
+#define MISO_PIN 19
 #define TEMP1_SELECT_PIN 4
-#define TEMP2_SELECT_PIN 5
-#define HEATER1_PIN A7
-#define HEATER2_PIN A6
-#define RED_PIN 14
-#define GREEN_PIN 15
-#define BLUE_PIN 16
+#define TEMP2_SELECT_PIN 17
+#define HEATER1_PIN 5
+#define HEATER2_PIN 26
+#define RED_PIN 2
+#define GREEN_PIN 2
+#define BLUE_PIN 2
 
 
 const uint16_t UPDATE_TM = 50;
@@ -34,18 +34,14 @@ uint8_t task_counter;
 uint32_t task_last;
 
 void setup() {
-  pinMode(LED_BUILTIN, OUTPUT);
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
   //Serial.begin(115200);      // CDC → RaspiPLC / Python
-  Serial.begin(15000000);    // UART → Debug console
+  Serial.begin(500000);    // UART → Debug console
   //setup pins for pwm
   pinMode(HEATER1_PIN, OUTPUT);
   pinMode(HEATER2_PIN, OUTPUT);
-  //setup pins for SPI Chip Selects
-  pinMode(TEMP2_SELECT_PIN, OUTPUT);
-  pinMode(TEMP2_SELECT_PIN, OUTPUT);
   //init buffers
   memset(rx_buf, 0x00, sizeof(rx_buf));
   memset(tx_buf, 0x00, sizeof(tx_buf));
@@ -126,16 +122,24 @@ void control_loop(){
       digitalWrite(GREEN_PIN, HIGH); // turn off green LED
       if (task_counter == 0){
         digitalWrite(RED_PIN, blink); //blink red LED = bad comms
+        digitalWrite(BLUE_PIN, blink); //blink red LED = bad comms
         blink = ! blink;
-        Serial.print("SP ");
-        Serial.print(inAsm->htr1_pide_stat.Sp);
-        Serial.print(" PV ");
-        Serial.print(inAsm->htr1_pide_stat.Pv);
-        Serial.print(" CV ");
-        Serial.print(inAsm->htr1_pide_stat.Cv);
-        Serial.print(" ERR ");
-        Serial.print(inAsm->htr1_pide_stat.Err);
-        Serial.println("");
+        for (int i = 0; i < 40; i++) {
+          Serial.print(tx_buf[i], HEX);
+          Serial.print(" ");
+        }
+        Serial.println();
+        // Serial.print("SP ");
+        // Serial.print(inAsm->htr1_pide_stat.Sp);
+        // Serial.print(" PV ");
+        // Serial.print(inAsm->htr1_pide_stat.Pv);
+        // Serial.print(" CV ");
+        // Serial.print(inAsm->htr1_pide_stat.Cv);
+        // Serial.print(" ERR ");
+        // Serial.print(inAsm->htr1_pide_stat.Err);
+        // Serial.print(" Temp 2 ");
+        // Serial.print(inAsm->temp2);
+        // Serial.println("");
 
       }
     }

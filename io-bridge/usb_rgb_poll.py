@@ -8,8 +8,6 @@ BAUD = 500000              # cosmetic for USB CDC
 FRAME_SIZE = 256
 MAGIC = 0xDEADBEEF
 
-NOP_FLOAT_VALUE = -999.9
-
 # ---------------- ctypes structures ----------------
 
 class UsbCommCmdBits(ctypes.LittleEndianStructure):
@@ -57,6 +55,7 @@ class InAssembly(ctypes.LittleEndianStructure):
 class PideCtrl(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = [
+        ("setBits",    ctypes.c_uint32),
         ("set_Sp",    ctypes.c_float),
         ("set_Cv",    ctypes.c_float),
         ("set_Kd",    ctypes.c_float),

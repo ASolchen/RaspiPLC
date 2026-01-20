@@ -10,8 +10,6 @@
 #define TEMP2_SELECT_PIN 17
 #define HEATER1_PIN 5
 #define HEATER2_PIN 26
-#define RED_PIN 2
-#define GREEN_PIN 2
 #define BLUE_PIN 2
 
 
@@ -34,8 +32,6 @@ uint8_t task_counter;
 uint32_t task_last;
 
 void setup() {
-  pinMode(RED_PIN, OUTPUT);
-  pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
   //Serial.begin(115200);      // CDC → RaspiPLC / Python
   Serial.begin(500000);    // UART → Debug console
@@ -63,7 +59,7 @@ void handle_commands();
 
 void loop() {
   handle_comms();
-  
+  handle_commands();
   control_loop();
 }
 
@@ -71,16 +67,13 @@ void loop() {
 void handle_comms(){
   bool magic_ok = true;
   inAsm->magic = USB_FRAME_MAGIC;
-  
-
   if (Serial.available() >= USB_FRAME_SIZE) {   
     Serial.readBytes(rx_buf, USB_FRAME_SIZE);
     magic_ok = (outAsm->magic == USB_FRAME_MAGIC);
     if (magic_ok){
       inAsm->watchdog_in = outAsm->watchdog_out + 1; //send back incremented watchdog
       Serial.write(tx_buf, USB_FRAME_SIZE);
-      digitalWrite(RED_PIN, HIGH); //turn off red LED
-      digitalWrite(GREEN_PIN, blink); // blink green LED = good comms
+      digitalWrite(BLUE_PIN, LOW); //turn on blue LED
       blink = ! blink;
       comm_ok = 1;
       timeout_last = millis();   // reset watchdog
@@ -94,7 +87,7 @@ void handle_comms(){
 }
 
 void handle_commands(){
-  //check command bits and args
+  tic1.handleCmds();
 }
 
 void control_loop(){
@@ -106,7 +99,9 @@ void control_loop(){
     //need to interleave the temp since the MAX6675 need +200mS to update temp
     if(task_counter == 0){
       inAsm->temp1 = tc1.readF();//read SPI
+      //outAsm->htr1_pide_ctrl.setBits = 64;
       tic1.update(inAsm->temp1); //update TIC1 PID
+      inAsm->htr1_pide_stat.Pv = outAsm->htr1_pide_ctrl.set_Kp;
       inAsm->heater1 = inAsm->htr1_pide_stat.Cv;
       inAsm->heater2 = inAsm->htr1_pide_stat.Cv;
     } 
@@ -119,27 +114,20 @@ void control_loop(){
       handle_commands();
     } else {
       outAsm->command_bits.raw = 0x00; //no comms, clear any bits
-      digitalWrite(GREEN_PIN, HIGH); // turn off green LED
       if (task_counter == 0){
-        digitalWrite(RED_PIN, blink); //blink red LED = bad comms
-        digitalWrite(BLUE_PIN, blink); //blink red LED = bad comms
+        digitalWrite(BLUE_PIN, blink); //blink blue LED = no / bad usb comms
         blink = ! blink;
-        for (int i = 0; i < 40; i++) {
-          Serial.print(tx_buf[i], HEX);
-          Serial.print(" ");
-        }
-        Serial.println();
-        // Serial.print("SP ");
-        // Serial.print(inAsm->htr1_pide_stat.Sp);
-        // Serial.print(" PV ");
-        // Serial.print(inAsm->htr1_pide_stat.Pv);
-        // Serial.print(" CV ");
-        // Serial.print(inAsm->htr1_pide_stat.Cv);
-        // Serial.print(" ERR ");
-        // Serial.print(inAsm->htr1_pide_stat.Err);
-        // Serial.print(" Temp 2 ");
-        // Serial.print(inAsm->temp2);
-        // Serial.println("");
+        Serial.print("SP ");
+        Serial.print(inAsm->htr1_pide_stat.Sp);
+        Serial.print(" PV ");
+        Serial.print(inAsm->htr1_pide_stat.Pv);
+        Serial.print(" CV ");
+        Serial.print(inAsm->htr1_pide_stat.Cv);
+        Serial.print(" ERR ");
+        Serial.print(inAsm->htr1_pide_stat.Err);
+        Serial.print(" Temp 2 ");
+        Serial.print(inAsm->temp2);
+        Serial.println("");
 
       }
     }

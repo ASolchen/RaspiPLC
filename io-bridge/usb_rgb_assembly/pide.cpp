@@ -27,55 +27,53 @@ PIDE::PIDE(pide_stat_t* stat_, pide_ctrl_t* ctrl_)
 }
 
 void PIDE::handleCmds() {
-    /* Mode (non-float, no sentinel needed) */
-    if (ctrl->set_Mode != PID_NOP) {
-        stat->Mode = ctrl->set_Mode;
+    /* Mode */
+    if (HAS_REQUEST(ctrl, SET_MODE_MASK)) {
+      if (ctrl->set_Mode <= PID_AUTO) {
+          stat->Mode = ctrl->set_Mode;
+      }
+    CLEAR_REQUEST(ctrl, SET_MODE_MASK);
     }
     /* Setpoint */
-    if (ctrl->set_Sp > NOP_FLOAT_THRESH) {
-        stat->Sp = ctrl->set_Sp;
-        ctrl->set_Sp = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_SP_MASK)) {
+      stat->Sp = ctrl->set_Sp;
+    CLEAR_REQUEST(ctrl, SET_SP_MASK);
     }
     /* Control Variable (ignored if not manualCV) */
-    if (ctrl->set_Cv > NOP_FLOAT_THRESH) {
-        if(stat->Mode == PID_MAN ){
-            stat->Cv = ctrl->set_Cv;
-            clamp(stat->Cv, 0.0f, 100.0f);
-        }
-        ctrl->set_Cv = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_CV_MASK)) {
+      if(stat->Mode == PID_MAN){
+        stat->Cv = ctrl->set_Cv;
+      }
+    CLEAR_REQUEST(ctrl, SET_CV_MASK);
     }
 
     /* Gains */
-    if (ctrl->set_Kp > NOP_FLOAT_THRESH) {
-        stat->Kp = ctrl->set_Kp;
-        ctrl->set_Kp = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_KP_MASK)) {
+      stat->Kp = ctrl->set_Kp;
+    CLEAR_REQUEST(ctrl, SET_KP_MASK);
     }
-
-    if (ctrl->set_Ki > NOP_FLOAT_THRESH) {
-        stat->Ki = ctrl->set_Ki;
-        ctrl->set_Ki = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_KI_MASK)) {
+      stat->Ki = ctrl->set_Ki;
+    CLEAR_REQUEST(ctrl, SET_KI_MASK);
     }
-
-    if (ctrl->set_Kd > NOP_FLOAT_THRESH) {
-        stat->Kd = ctrl->set_Kd;
-        ctrl->set_Kd = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_KD_MASK)) {
+      stat->Kd = ctrl->set_Kd;
+    CLEAR_REQUEST(ctrl, SET_KD_MASK);
     }
 
     /* Limits */
-    if (ctrl->set_PvMin > NOP_FLOAT_THRESH) {
-        stat->PvMin = ctrl->set_PvMin;
-        ctrl->set_PvMin = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_PVMIN_MASK)) {
+      stat->PvMin = ctrl->set_PvMin;
+    CLEAR_REQUEST(ctrl, SET_PVMIN_MASK);
     }
-
-    if (ctrl->set_PvMax > NOP_FLOAT_THRESH) {
-        stat->PvMax = ctrl->set_PvMax;
-        ctrl->set_PvMax = NOP_FLOAT_VALUE;
+    if (HAS_REQUEST(ctrl, SET_PVMAX_MASK)) {
+      stat->PvMax = ctrl->set_PvMax;
+    CLEAR_REQUEST(ctrl, SET_PVMAX_MASK);
     }
 }
 
 
 float PIDE::update(float pv) {
-    handleCmds();
     stat->Pv = pv; //always update pv
     if (stat->Mode == PID_OFF){ //cv zero and sp tracking
         stat->Cv = 0.0;

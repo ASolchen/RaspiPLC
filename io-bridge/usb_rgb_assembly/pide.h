@@ -1,6 +1,30 @@
 #pragma once
 #include <stdint.h>
 
+
+#define BIT(n) (1UL << (n))
+typedef enum {
+    SET_SP_BIT = 0,
+    SET_CV_BIT = 1,
+    SET_KP_BIT = 2,
+    SET_KI_BIT = 3,
+    SET_KD_BIT = 4,
+    SET_PVMIN_BIT = 5,
+    SET_PVMAX_BIT = 6,
+    SET_MODE_BIT = 7,
+} pide_set_bit_t;
+#define SET_SP_MASK     BIT(SET_SP_BIT)
+#define SET_CV_MASK     BIT(SET_CV_BIT)
+#define SET_KP_MASK     BIT(SET_KP_BIT)
+#define SET_KI_MASK     BIT(SET_KI_BIT)
+#define SET_KD_MASK     BIT(SET_KD_BIT)
+#define SET_PVMIN_MASK  BIT(SET_PVMIN_BIT)
+#define SET_PVMAX_MASK  BIT(SET_PVMAX_BIT)
+#define SET_MODE_MASK   BIT(SET_MODE_BIT)
+#define SET_REQUEST(ctrl, mask)    ((ctrl)->setBits |= (mask))
+#define CLEAR_REQUEST(ctrl, mask)  ((ctrl)->setBits &= ~(mask))
+#define HAS_REQUEST(ctrl, mask)    (((ctrl)->setBits & (mask)) != 0)
+
 typedef enum {
     PID_NOP  = -1, //no-op value
     PID_OFF  = 0,
@@ -8,8 +32,11 @@ typedef enum {
     PID_AUTO = 2
 } pide_mode_t;
 
+
+
 typedef struct {
-    float set_Sp; //set all of these on the other end (Python)
+    uint32_t setBits;
+    float set_Sp; //set all of these on the other end (Python) 
     float set_Cv;
     float set_Kp;
     float set_Ki;
@@ -17,6 +44,9 @@ typedef struct {
     float set_PvMin;
     float set_PvMax;
     uint8_t set_Mode;
+    uint8_t _pad65;
+    uint8_t _pad66;
+    uint8_t _pad67;
 } pide_ctrl_t;
 
 typedef struct {

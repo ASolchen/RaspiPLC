@@ -3,6 +3,7 @@ import time
 import threading
 import ctypes
 import serial
+import random
 from collections import deque
 
 from PyQt6.QtWidgets import (
@@ -21,11 +22,25 @@ BAUD = 500000
 FRAME_SIZE = 256
 MAGIC = 0xDEADBEEF
 
-NOP_FLOAT_VALUE = -999.9
+
 HISTORY_SEC = 60
 PLOT_HZ = 5
+SET_BITS = {
+    "Sp": 0,
+    "Cv": 1,
+    "Kp": 2,
+    "Ki": 3,
+    "Kd": 4,
+    "PvMin": 5,
+    "PvMax": 6,
+    "Mode": 7
+}
 
+def BIT(n: int) -> int:
+    return 1 << n
 
+def set_request(mask: int, key: str) -> int:
+    return mask | BIT(SET_BITS[key])
 # ---------------- ctypes (MATCH usb_rgb_poll.py EXACTLY) ----------------
 
 class UsbCommCmdBits(ctypes.LittleEndianStructure):
@@ -73,6 +88,7 @@ class InAssembly(ctypes.LittleEndianStructure):
 class PideCtrl(ctypes.LittleEndianStructure):
     _pack_ = 1
     _fields_ = [
+        ("setBits",    ctypes.c_uint32),
         ("set_Sp",    ctypes.c_float),
         ("set_Cv",    ctypes.c_float),
         ("set_Kd",    ctypes.c_float),
@@ -81,7 +97,10 @@ class PideCtrl(ctypes.LittleEndianStructure):
         ("set_PvMin", ctypes.c_float),
         ("set_PvMax", ctypes.c_float),
         ("set_Mode",  ctypes.c_uint8),
-        ("_pad", ctypes.c_uint8 * (256 - (4 + 1 + 4) - (7 * 4 + 1))),
+        ("_pad65",  ctypes.c_uint8),
+        ("_pad66",  ctypes.c_uint8),
+        ("_pad67",  ctypes.c_uint8),
+        #("_pad", ctypes.c_uint8 * (256 - 4*9)),
     ]
 
 
@@ -90,6 +109,9 @@ class OutAssembly(ctypes.LittleEndianStructure):
     _fields_ = [
         ("magic",        ctypes.c_uint32),
         ("watchdog_out", ctypes.c_uint8),
+        ("pad5",        ctypes.c_uint8),
+        ("pad6",        ctypes.c_uint8),
+        ("pad7",        ctypes.c_uint8),
         ("command_bits", UsbCommCmdBits),
         ("htr1_pide_ctrl", PideCtrl),
     ]
@@ -109,14 +131,13 @@ class UsbWorker(threading.Thread):
         self.inAsm  = InAssembly.from_buffer(self.in_buf)
 
         # Initialize outbound values to NOP
-        self.outAsm.htr1_pide_ctrl.set_Sp = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_Cv = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_Kd = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_Kp = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_Ki = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_PvMin = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_PvMax = NOP_FLOAT_VALUE
-        self.outAsm.htr1_pide_ctrl.set_Mode = 0xFF
+    
+        setBits = 0
+        setBits = set_request(setBits, "Sp")
+        self.outAsm.htr1_pide_ctrl.set_Sp = 124.7
+        setBits = set_request(setBits, "Mode")
+        self.outAsm.htr1_pide_ctrl.set_Mode = 2
+        self.outAsm.htr1_pide_ctrl.setBits = setBits
 
         self.rx = bytearray()
 
@@ -125,14 +146,23 @@ class UsbWorker(threading.Thread):
             ser.reset_input_buffer()
             ser.reset_output_buffer()
             time.sleep(0.2)
-
+            last_change_tm = time.time()
             while self.running:
+                now = time.time()
+                if((now-last_change_tm) > 15.0):
+                    last_change_tm = now
+                    self.outAsm.htr1_pide_ctrl.set_Mode = 2
+                    self.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Mode")
                 # ----- transmit -----
                 self.outAsm.magic = MAGIC
                 self.outAsm.watchdog_out = self.inAsm.watchdog_in & 0xFF
                 self.outAsm.command_bits.raw = 0
+                self.outAsm.htr1_pide_ctrl.set_Kp = 1.0 + random.random()*2.0
+                self.outAsm.htr1_pide_ctrl.setBits = 32
 
                 ser.write(self.out_buf)
+                
+                
                 ser.flush()
 
                 # ----- receive / accumulate -----
@@ -150,6 +180,7 @@ class UsbWorker(threading.Thread):
                     self.in_buf[:] = frame
 
                 time.sleep(0.01)
+                self.outAsm.htr1_pide_ctrl.setBits = 0x00
 
     def stop(self):
         self.running = False
@@ -235,12 +266,24 @@ class PideHMI(QWidget):
 
     # ---------- setters ----------
 
-    def set_sp(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Sp = float(v)
-    def set_cv(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Cv = float(v)
-    def set_kp(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Kp = float(v)
-    def set_ki(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Ki = float(v)
-    def set_kd(self, v): self.worker.outAsm.htr1_pide_ctrl.set_Kd = float(v)
-    def set_mode(self, idx): self.worker.outAsm.htr1_pide_ctrl.set_Mode = idx & 0xFF
+    def set_sp(self, v):
+        self.worker.outAsm.htr1_pide_ctrl.set_Sp = float(v)
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Sp")
+    def set_cv(self, v):
+        self.worker.outAsm.htr1_pide_ctrl.set_Cv = float(v)
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Cv")
+    def set_kp(self, v):
+        self.worker.outAsm.htr1_pide_ctrl.set_Kp = float(v)
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Kp")
+    def set_ki(self, v):
+        self.worker.outAsm.htr1_pide_ctrl.set_Ki = float(v)
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Ki")
+    def set_kd(self, v):
+        self.worker.outAsm.htr1_pide_ctrl.set_Kd = float(v)
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Kd")
+    def set_mode(self, idx):
+        self.worker.outAsm.htr1_pide_ctrl.setBits = set_request(0, "Mode")
+        self.worker.outAsm.htr1_pide_ctrl.set_Mode = idx & 0xFF
 
     # ---------- update ----------
 

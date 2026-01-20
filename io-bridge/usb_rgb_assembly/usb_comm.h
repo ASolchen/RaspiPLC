@@ -23,6 +23,9 @@ typedef union {
 typedef struct __attribute__((packed)) {
   uint32_t magic;
   uint8_t  watchdog_out;
+  uint8_t  _pad05;
+  uint8_t  _pad06;
+  uint8_t  _pad07;
   usb_comm_cmd_bits_t command_bits;
   pide_ctrl_t htr1_pide_ctrl;
 } usb_comm_out_t;
@@ -30,9 +33,9 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
   uint32_t magic;
   uint8_t  watchdog_in;
-  uint8_t  pad5; //keep 32-bit alignment
-  uint8_t  pad6; //keep 32-bit alignment
-  uint8_t  pad7; //keep 32-bit alignment
+  uint8_t  _pad05; //keep 32-bit alignment
+  uint8_t  _pad06; //keep 32-bit alignment
+  uint8_t  _pad07; //keep 32-bit alignment
   float temp1;
   float temp2;
   float heater1;

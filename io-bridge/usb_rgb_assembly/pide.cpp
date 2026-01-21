@@ -20,7 +20,7 @@ PIDE::PIDE(pide_stat_t* stat_, pide_ctrl_t* ctrl_)
     ctrl->set_Kp = 2.0;
     ctrl->set_Ki = 0.1;
     ctrl->set_Kd = 0.0;
-    ctrl->set_Mode = PID_MAN;
+    ctrl->set_Mode = PID_AUTO;
     ctrl->set_Cv = 30.0;
     ctrl->set_PvMin = 0.0;
     ctrl->set_PvMax = 500.0;

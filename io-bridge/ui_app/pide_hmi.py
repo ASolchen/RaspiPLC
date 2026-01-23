@@ -26,19 +26,18 @@ HEADER_SIZE = struct.calcsize(HEADER_FMT)
 
 OBJ_PID1 = 1
 
-PID_CMD_READ_STATUS = 0x01
+PID_CMD = {"READ_STATUS" : 0x01,
+    "SP"  : 0x10,
+    "CV"   : 0x11,
+    "KP"   : 0x12,
+    "KI"    : 0x13,
+    "KD"   : 0x14,
+    "PVMIN" : 0x15,
+    "PVMAX" : 0x16,
+    "MODE"  : 0x17}
 
-PID_CMD_SET_SP    = 0x10
-PID_CMD_SET_CV    = 0x11
-PID_CMD_SET_KP    = 0x12
-PID_CMD_SET_KI    = 0x13
-PID_CMD_SET_KD    = 0x14
-PID_CMD_SET_PVMIN = 0x15
-PID_CMD_SET_PVMAX = 0x16
-PID_CMD_SET_MODE  = 0x17
-
-PLOT_HZ = 5
-HISTORY_SEC = 60
+PLOT_HZ = 10
+HISTORY_SEC = 300
 
 RESPONSE_TIMEOUT = 0.15
 MAX_RETRIES = 5
@@ -87,7 +86,7 @@ class UsbWorker(threading.Thread):
     def enqueue(self, cmd_id, payload=b""):
         with self.lock:
             self.cmd_queue.append((cmd_id, payload))
-            print(f"[UI] Queued cmd={cmd_id}")
+            #print(f"[UI] Queued cmd={cmd_id}")
 
     # ---------- thread ----------
 
@@ -116,19 +115,19 @@ class UsbWorker(threading.Thread):
                                 "ts": 0.0,
                                 "retries": 0
                             }
-                            print(f"[SCHED] Sending queued cmd={cmd_id} seq={seq}")
+                            #print(f"[SCHED] Sending queued cmd={cmd_id} seq={seq}")
 
                         elif now - last_poll > 1.0 / PLOT_HZ:
                             last_poll = now
-                            seq, frame = self.build_frame(OBJ_PID1, PID_CMD_READ_STATUS)
+                            seq, frame = self.build_frame(OBJ_PID1, PID_CMD["READ_STATUS"])
                             self.in_flight = {
                                 "seq": seq,
-                                "cmd": PID_CMD_READ_STATUS,
+                                "cmd": PID_CMD["READ_STATUS"],
                                 "frame": frame,
                                 "ts": 0.0,
                                 "retries": 0
                             }
-                            print(f"[SCHED] Polling READ_STATUS seq={seq}")
+                            #print(f"[SCHED] Polling READ_STATUS seq={seq}")
 
                     # Transmit / retry in-flight
                     if self.in_flight:
@@ -143,7 +142,7 @@ class UsbWorker(threading.Thread):
                             self.in_flight["retries"] += 1
 
                             if self.in_flight["retries"] > MAX_RETRIES:
-                                print(f"[DROP] cmd={self.in_flight['cmd']}")
+                                #print(f"[DROP] cmd={self.in_flight['cmd']}")
                                 self.in_flight = None
 
                 # -------- RX --------
@@ -168,10 +167,10 @@ class UsbWorker(threading.Thread):
 
                     with self.lock:
                         if self.in_flight and seq == self.in_flight["seq"]:
-                            print(f"[RX] Ack cmd={cmd} seq={seq}")
+                            #print(f"[RX] Ack cmd={cmd} seq={seq}")
                             self.in_flight = None
 
-                    if cmd == PID_CMD_READ_STATUS and len(payload) == PID_STATUS_SIZE:
+                    if cmd == PID_CMD["READ_STATUS"] and len(payload) == PID_STATUS_SIZE:
                         self.pid_status = struct.unpack(PID_STATUS_FMT, payload)
 
                 time.sleep(0.01)
@@ -229,15 +228,15 @@ class PideHMI(QWidget):
         layout.addWidget(self.plot)
 
         ctrl = QHBoxLayout()
-        self._spin(ctrl, "SP", PID_CMD_SET_SP)
-        self._spin(ctrl, "Kp", PID_CMD_SET_KP)
-        self._spin(ctrl, "Ki", PID_CMD_SET_KI)
-        self._spin(ctrl, "Kd", PID_CMD_SET_KD)
+        self._spin(ctrl, "SP", PID_CMD["SP"])
+        self._spin(ctrl, "Kp", PID_CMD["KP"])
+        self._spin(ctrl, "Ki", PID_CMD["KI"])
+        self._spin(ctrl, "Kd", PID_CMD["KD"])
 
         self.mode = QComboBox()
         self.mode.addItems(["OFF", "MAN", "AUTO"])
         self.mode.currentIndexChanged.connect(
-            lambda i: self.worker.enqueue(PID_CMD_SET_MODE, struct.pack("<B", i))
+            lambda i: self.worker.enqueue(PID_CMD["MODE"], struct.pack("<B", i))
         )
         ctrl.addWidget(QLabel("Mode"))
         ctrl.addWidget(self.mode)

@@ -1,3 +1,4 @@
+// pide.h
 #pragma once
 
 #include <stdint.h>
@@ -10,7 +11,7 @@ typedef enum {
     PID_AUTO = 2
 } pide_mode_t;
 
-// ---------------- COMMAND IDS (PID-SPECIFIC) ----------------
+// ---------------- COMMAND IDS ----------------
 typedef enum {
     PID_CMD_READ_STATUS = 0x01,
 
@@ -41,19 +42,7 @@ typedef struct __attribute__((packed)) {
     uint8_t _pad3;
 } pide_stat_t;
 
-// ---------------- CONTROL STRUCT ----------------
-typedef struct {
-    float set_Sp;
-    float set_Cv;
-    float set_Kp;
-    float set_Ki;
-    float set_Kd;
-    float set_PvMin;
-    float set_PvMax;
-    uint8_t set_Mode;
-} pide_ctrl_t;
-
-// ---------------- COMMAND VIEW (GENERIC) ----------------
+// ---------------- COMMAND VIEW ----------------
 typedef struct {
     uint8_t  cmd_id;
     const uint8_t* payload;
@@ -69,12 +58,15 @@ typedef enum {
 // ---------------- PIDE CLASS ----------------
 class PIDE {
 public:
-    PIDE(pide_stat_t* stat, pide_ctrl_t* ctrl);
+    PIDE();
 
-    // Called by control loop
+    // Public state (intentionally exposed)
+    pide_stat_t stat;
+
+    // Control loop
     float update(float pv);
 
-    // Generic command handler (USB-agnostic)
+    // USB-agnostic command handler
     pid_cmd_result_t handle_cmd(
         const pid_cmd_view_t& cmd,
         uint8_t* out_buf,
@@ -83,9 +75,6 @@ public:
     );
 
 private:
-    pide_stat_t* stat_;
-    pide_ctrl_t* ctrl_;
-
     float Err_1 = 0.0f;
     float Err_2 = 0.0f;
     uint32_t last_ms_ = 0;

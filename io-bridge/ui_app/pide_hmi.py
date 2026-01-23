@@ -7,7 +7,7 @@ from collections import deque
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QDoubleSpinBox, QComboBox
+    QLabel, QDoubleSpinBox, QComboBox, QGroupBox
 )
 from PyQt6.QtCore import QTimer
 
@@ -24,20 +24,28 @@ MAGIC = 0xDEADBEEF
 HEADER_FMT = "<I H B B B B"
 HEADER_SIZE = struct.calcsize(HEADER_FMT)
 
-OBJ_PID1 = 1
+OBJ_TIC1 = 1
 
-PID_CMD = {"READ_STATUS" : 0x01,
-    "SP"  : 0x10,
-    "CV"   : 0x11,
-    "KP"   : 0x12,
-    "KI"    : 0x13,
-    "KD"   : 0x14,
-    "PVMIN" : 0x15,
-    "PVMAX" : 0x16,
-    "MODE"  : 0x17}
+TC_CMD = {
+    "READ_STATUS": 0x01,
+    "SET_MODE":    0x20,
+    "SET_SP":      0x21,
+    "SET_CTRL":    0x22,
+}
+
+PID_CMD = {
+    "SP":    0x10,
+    "CV":    0x11,
+    "KP":    0x12,
+    "KI":    0x13,
+    "KD":    0x14,
+    "PVMIN": 0x15,
+    "PVMAX": 0x16,
+    "MODE":  0x17,
+}
 
 PLOT_HZ = 10
-HISTORY_SEC = 300
+HISTORY_SEC = 1800
 
 RESPONSE_TIMEOUT = 0.15
 MAX_RETRIES = 5
@@ -47,6 +55,19 @@ MAX_RETRIES = 5
 
 PID_STATUS_FMT = "<9f B 3x"
 PID_STATUS_SIZE = struct.calcsize(PID_STATUS_FMT)
+
+# TempCtrl:
+# u8 Mode
+# u8 CtrlMode
+# u16 pad
+# float TempCtrl.Sp
+# pide_stat_t
+TC_STATUS_FMT = "<B B H f " + PID_STATUS_FMT[1:]
+TC_STATUS_SIZE = struct.calcsize(TC_STATUS_FMT)
+
+TC_MODE_NAMES  = ["Off", "OperManual", "OperAuto", "PgmAuto"]
+TC_CTRL_NAMES  = ["Off", "Boost", "FeedFwd", "ClosedLoop"]
+PID_MODE_NAMES = ["OFF", "MAN", "AUTO"]
 
 
 # ================== USB WORKER ==================
@@ -63,9 +84,7 @@ class UsbWorker(threading.Thread):
         self.in_flight = None
 
         self.rx = bytearray()
-        self.pid_status = None
-
-    # ---------- framing ----------
+        self.tc_status = None
 
     def build_frame(self, obj_id, cmd_id, payload=b""):
         self.seq = (self.seq + 1) & 0xFF
@@ -81,18 +100,18 @@ class UsbWorker(threading.Thread):
         )
         return self.seq, hdr + payload
 
-    # ---------- UI API ----------
-
     def enqueue(self, cmd_id, payload=b""):
         with self.lock:
             self.cmd_queue.append((cmd_id, payload))
-            #print(f"[UI] Queued cmd={cmd_id}")
-
-    # ---------- thread ----------
 
     def run(self):
-        with serial.Serial(PORT, BAUD, timeout=0.05) as ser:
-            self.ser = ser
+        with serial.Serial(PORT,
+                           BAUD,
+                           timeout=0.05,
+                           dsrdtr=False,
+                           rtscts=False) as ser:
+            ser.setDTR(False)
+            ser.setRTS(False)
             ser.reset_input_buffer()
             ser.reset_output_buffer()
 
@@ -101,13 +120,11 @@ class UsbWorker(threading.Thread):
             while self.running:
                 now = time.time()
 
-                # -------- scheduler --------
                 with self.lock:
-                    # If nothing in flight, choose next command
                     if self.in_flight is None:
                         if self.cmd_queue:
                             cmd_id, payload = self.cmd_queue.popleft()
-                            seq, frame = self.build_frame(OBJ_PID1, cmd_id, payload)
+                            seq, frame = self.build_frame(OBJ_TIC1, cmd_id, payload)
                             self.in_flight = {
                                 "seq": seq,
                                 "cmd": cmd_id,
@@ -115,37 +132,31 @@ class UsbWorker(threading.Thread):
                                 "ts": 0.0,
                                 "retries": 0
                             }
-                            #print(f"[SCHED] Sending queued cmd={cmd_id} seq={seq}")
-
                         elif now - last_poll > 1.0 / PLOT_HZ:
                             last_poll = now
-                            seq, frame = self.build_frame(OBJ_PID1, PID_CMD["READ_STATUS"])
+                            seq, frame = self.build_frame(OBJ_TIC1, TC_CMD["READ_STATUS"])
                             self.in_flight = {
                                 "seq": seq,
-                                "cmd": PID_CMD["READ_STATUS"],
+                                "cmd": TC_CMD["READ_STATUS"],
                                 "frame": frame,
                                 "ts": 0.0,
                                 "retries": 0
                             }
-                            #print(f"[SCHED] Polling READ_STATUS seq={seq}")
 
-                    # Transmit / retry in-flight
                     if self.in_flight:
                         if (
                             self.in_flight["retries"] == 0 or
                             (now - self.in_flight["ts"]) > RESPONSE_TIMEOUT
                         ):
-                            self.ser.write(self.in_flight["frame"])
-                            self.ser.flush()
+                            ser.write(self.in_flight["frame"])
+                            ser.flush()
 
                             self.in_flight["ts"] = now
                             self.in_flight["retries"] += 1
 
                             if self.in_flight["retries"] > MAX_RETRIES:
-                                #print(f"[DROP] cmd={self.in_flight['cmd']}")
                                 self.in_flight = None
 
-                # -------- RX --------
                 self.rx += ser.read(512)
 
                 while len(self.rx) >= HEADER_SIZE:
@@ -160,18 +171,17 @@ class UsbWorker(threading.Thread):
                     frame = self.rx[:length]
                     del self.rx[:length]
 
-                    magic, _, seq, obj, cmd, _ = struct.unpack(
+                    _, _, seq, _, cmd, _ = struct.unpack(
                         HEADER_FMT, frame[:HEADER_SIZE]
                     )
                     payload = frame[HEADER_SIZE:length]
 
                     with self.lock:
                         if self.in_flight and seq == self.in_flight["seq"]:
-                            #print(f"[RX] Ack cmd={cmd} seq={seq}")
                             self.in_flight = None
 
-                    if cmd == PID_CMD["READ_STATUS"] and len(payload) == PID_STATUS_SIZE:
-                        self.pid_status = struct.unpack(PID_STATUS_FMT, payload)
+                    if cmd == TC_CMD["READ_STATUS"] and len(payload) == TC_STATUS_SIZE:
+                        self.tc_status = struct.unpack(TC_STATUS_FMT, payload)
 
                 time.sleep(0.01)
 
@@ -181,10 +191,10 @@ class UsbWorker(threading.Thread):
 
 # ================== UI ==================
 
-class PideHMI(QWidget):
+class TempCtrlHMI(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("PIDE HMI")
+        self.setWindowTitle("TempCtrl HMI")
 
         self.worker = UsbWorker()
         self.worker.start()
@@ -192,7 +202,7 @@ class PideHMI(QWidget):
         self.t0 = time.time()
 
         self.ts = deque()
-        self.sp = deque()
+        self.tc_sp = deque()
         self.pv = deque()
         self.cv = deque()
 
@@ -206,13 +216,16 @@ class PideHMI(QWidget):
         layout = QVBoxLayout(self)
 
         status = QHBoxLayout()
-        self.lbl_mode = QLabel("Mode: --")
+        self.lbl_tc_mode = QLabel("TC Mode: --")
+        self.lbl_tc_ctrl = QLabel("CtrlMode: --")
+        self.lbl_pid_mode = QLabel("PID Mode: --")
         self.lbl_kp = QLabel("Kp: --")
         self.lbl_ki = QLabel("Ki: --")
         self.lbl_kd = QLabel("Kd: --")
 
-        for l in (self.lbl_mode, self.lbl_kp, self.lbl_ki, self.lbl_kd):
-            l.setMinimumWidth(120)
+        for l in (self.lbl_tc_mode, self.lbl_tc_ctrl, self.lbl_pid_mode,
+                  self.lbl_kp, self.lbl_ki, self.lbl_kd):
+            l.setMinimumWidth(140)
             status.addWidget(l)
 
         layout.addLayout(status)
@@ -221,27 +234,34 @@ class PideHMI(QWidget):
         self.plot.addLegend()
         self.plot.showGrid(x=True, y=True)
 
-        self.sp_curve = self.plot.plot(pen="y", name="SP")
+        self.sp_curve = self.plot.plot(pen="y", name="TC SP")
         self.pv_curve = self.plot.plot(pen="g", name="PV")
         self.cv_curve = self.plot.plot(pen="r", name="CV")
 
         layout.addWidget(self.plot)
 
-        ctrl = QHBoxLayout()
-        self._spin(ctrl, "SP", PID_CMD["SP"])
-        self._spin(ctrl, "Kp", PID_CMD["KP"])
-        self._spin(ctrl, "Ki", PID_CMD["KI"])
-        self._spin(ctrl, "Kd", PID_CMD["KD"])
+        controls = QHBoxLayout()
 
-        self.mode = QComboBox()
-        self.mode.addItems(["OFF", "MAN", "AUTO"])
-        self.mode.currentIndexChanged.connect(
-            lambda i: self.worker.enqueue(PID_CMD["MODE"], struct.pack("<B", i))
+        tc_group = QGroupBox("TempCtrl")
+        tc_layout = QHBoxLayout(tc_group)
+        self._spin(tc_layout, "SP", TC_CMD["SET_SP"])
+        self.tc_mode = QComboBox()
+        self.tc_mode.addItems(TC_MODE_NAMES)
+        self.tc_mode.currentIndexChanged.connect(
+            lambda i: self.worker.enqueue(TC_CMD["SET_MODE"], struct.pack("<B", i))
         )
-        ctrl.addWidget(QLabel("Mode"))
-        ctrl.addWidget(self.mode)
+        tc_layout.addWidget(QLabel("Mode"))
+        tc_layout.addWidget(self.tc_mode)
+        controls.addWidget(tc_group)
 
-        layout.addLayout(ctrl)
+        pid_group = QGroupBox("PIDE")
+        pid_layout = QHBoxLayout(pid_group)
+        self._spin(pid_layout, "Kp", PID_CMD["KP"])
+        self._spin(pid_layout, "Ki", PID_CMD["KI"])
+        self._spin(pid_layout, "Kd", PID_CMD["KD"])
+        controls.addWidget(pid_group)
+
+        layout.addLayout(controls)
 
     def _spin(self, layout, name, cmd):
         layout.addWidget(QLabel(name))
@@ -250,36 +270,42 @@ class PideHMI(QWidget):
         box.setDecimals(3)
         box.editingFinished.connect(
             lambda b=box, c=cmd:
-                self.worker.enqueue(c, struct.pack("<f", b.value()))
+                self.worker.enqueue(c, struct.pack("<f", float(b.value())))
         )
         layout.addWidget(box)
 
     def update_ui(self):
-        st = self.worker.pid_status
+        st = self.worker.tc_status
         if not st:
             return
 
-        Sp, Pv, Cv, Kp, Ki, Kd, PvMin, PvMax, Err, Mode = st
+        (
+            tc_mode, tc_ctrl, _pad, tc_sp,
+            pid_sp, Pv, Cv, Kp, Ki, Kd, PvMin, PvMax, Err, pidMode
+        ) = st
+
         now = time.time() - self.t0
 
-        self.lbl_mode.setText(f"Mode: {int(Mode)}")
+        self.lbl_tc_mode.setText(f"TC Mode: {TC_MODE_NAMES[tc_mode]}")
+        self.lbl_tc_ctrl.setText(f"CtrlMode: {TC_CTRL_NAMES[tc_ctrl]}")
+        self.lbl_pid_mode.setText(f"PID Mode: {PID_MODE_NAMES[pidMode]}")
         self.lbl_kp.setText(f"Kp: {Kp:.3f}")
         self.lbl_ki.setText(f"Ki: {Ki:.3f}")
         self.lbl_kd.setText(f"Kd: {Kd:.3f}")
 
         self.ts.append(now)
-        self.sp.append(Sp)
+        self.tc_sp.append(tc_sp)
         self.pv.append(Pv)
         self.cv.append(Cv)
 
         cutoff = now - HISTORY_SEC
         while self.ts and self.ts[0] < cutoff:
             self.ts.popleft()
-            self.sp.popleft()
+            self.tc_sp.popleft()
             self.pv.popleft()
             self.cv.popleft()
 
-        self.sp_curve.setData(self.ts, self.sp)
+        self.sp_curve.setData(self.ts, self.tc_sp)
         self.pv_curve.setData(self.ts, self.pv)
         self.cv_curve.setData(self.ts, self.cv)
 
@@ -292,7 +318,7 @@ class PideHMI(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    w = PideHMI()
-    w.resize(1100, 650)
+    w = TempCtrlHMI()
+    w.resize(1200, 700)
     w.show()
     sys.exit(app.exec())

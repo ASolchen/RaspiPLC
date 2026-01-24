@@ -128,3 +128,23 @@
         padding: 6px;
 
     }
+
+    .mode-group {
+        display: flex;
+        gap: 8px;
+    }
+
+    .mode-btn {
+        padding: 14px 18px;
+        font-size: 1.1em;
+        border-radius: 6px;
+        border: 2px solid #555;
+        background: #222;
+        color: #ccc;
+    }
+
+    .mode-btn.active {
+        background: #1e90ff;
+        border-color: #1e90ff;
+        color: white;
+    }

@@ -3,6 +3,8 @@ from flask_socketio import SocketIO
 from threading import Thread
 import time
 
+from tags.poller import Poller
+from tags.usb_comm import UsbComm
 from web.routes import register_routes
 from tags.runtime import register_tag_namespace, emit_tag_updates
 
@@ -12,7 +14,11 @@ app.jinja_env.auto_reload = True
 app.config["SECRET_KEY"] = "dev"
 
 socketio = SocketIO(app, async_mode="threading")
-
+# ---------------- Hardware poller ----------------
+usb = UsbComm("COM8", 500000)
+poller = Poller(usb)
+from tags.runtime import set_poller
+set_poller(poller)
 
 def start_tag_update_loop():
     """
@@ -24,8 +30,7 @@ def start_tag_update_loop():
             emit_tag_updates(socketio)
             time.sleep(0.05)  # 50 ms tick; per-client rate_ms still applies
 
-    Thread(target=run, daemon=True).start()
-
+    socketio.start_background_task(run)
 
 # ---------------------------------------------------------------------------
 # App setup
@@ -33,6 +38,7 @@ def start_tag_update_loop():
 
 register_routes(app)
 register_tag_namespace(socketio)
+socketio.start_background_task(poller.run)
 start_tag_update_loop()
 
 if __name__ == "__main__":

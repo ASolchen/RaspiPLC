@@ -6,38 +6,21 @@ BASE_DIR="/home/engineer/RaspiPLC/ui-flask"
 VENV_DIR="$BASE_DIR/venv"
 SYSTEMD_DIR="/etc/systemd/system"
 
-echo "[install] Installing RaspiPLC Flask UI with Socket.IO (pinned versions)"
+echo "[install] Installing RaspiPLC Flask UI"
 
-# Ensure python + venv support
 apt-get update
 apt-get install -y python3 python3-venv
 
-# Create venv if missing
 if [ ! -d "$VENV_DIR" ]; then
     echo "[install] Creating virtual environment..."
     python3 -m venv "$VENV_DIR"
 fi
 
-echo "[install] Activating venv and installing dependencies..."
-
-# Always upgrade pip inside venv
+echo "[install] Installing Python dependencies..."
 "$VENV_DIR/bin/pip" install --upgrade pip
+"$VENV_DIR/bin/pip" install -r "$BASE_DIR/requirements.txt"
 
-# Remove incompatible versions if present
-"$VENV_DIR/bin/pip" uninstall -y \
-    flask-socketio \
-    python-socketio \
-    python-engineio || true
-
-# Install KNOWN-GOOD compatible versions
-"$VENV_DIR/bin/pip" install \
-    flask \
-    flask-socketio==5.3.6 \
-    python-socketio==5.11.1 \
-    python-engineio==4.9.1 \
-    eventlet==0.35.2
-
-# Install / update systemd service
+echo "[install] Installing systemd service..."
 cp "$SERVICE_NAME" "$SYSTEMD_DIR/"
 
 systemctl daemon-reexec

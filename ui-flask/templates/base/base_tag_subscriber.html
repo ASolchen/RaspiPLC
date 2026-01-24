@@ -6,37 +6,33 @@
 console.log("=== base_tag_subscriber loaded ===");
 
 (function () {
-    const tagSocket = io("/tags");
+    const socket = io("/tags");
 
+    
     window.TagRuntime = {
-        socket: tagSocket,
-        connected: false,
-        write(tag, value) {
-            if (!this.connected) return;
-            tagSocket.emit("tag_write", { tag, value });
-        }
+        socket: socket,
     };
 
-    tagSocket.on("connect", () => {
-        console.log("[TagRuntime] connected");
-        window.TagRuntime.connected = true;
+    socket.on("connect", () => {
+        console.log("[tags] connected");
 
-        const payload = {
-            tags: Array.isArray(window.TAG_SUBSCRIPTIONS)
-                ? window.TAG_SUBSCRIPTIONS
-                : []
-        };
-
-        tagSocket.emit("subscribe", payload);
+        if (window.TAG_SUBSCRIPTIONS) {
+            socket.emit("subscribe", {
+                tags: window.TAG_SUBSCRIPTIONS
+            });
+        }
     });
 
-    tagSocket.on("tag_update", payload => {
-        if (window.onTagUpdate) {
-            window.onTagUpdate(payload.tags);
+    socket.on("tag_update", (tags) => {
+        if (!tags || typeof tags !== "object") return;
+
+        if (typeof window.onTagUpdate === "function") {
+            window.onTagUpdate(tags);
         }
     });
 })();
 </script>
+
 {% block tag_bindings %}{% endblock %}
 {% endblock %}
 

@@ -5,25 +5,28 @@
 {% block content %}
 
 <div class="card">
-    <div class="status-grid">
+    <div>
+    <h3>Temp Controller</h3>
+        SP: <span id="tc-sp">--</span><br>
+        Mode: <span id="tc-mode">--</span><br>
+        CtrlMode: <span id="tc-ctrlmode">--</span>
+        </div>
 
-        <p class="hmi-indicator">Status<br><span id="smoker-status">STOPPED</span></p>
-        <p class="hmi-indicator">Smoker Temp<br><span id="smoker-temp">***.*</span><span> °F</span></p>
-        <p class="hmi-indicator">Meat Temp<br><span id="meat-temp">***.*</span> °F</p>
-        <p class="hmi-indicator">Heater 1 Output<br><span id="heater1-pct">**</span> %</p>
-        <p class="hmi-indicator">Heater 2 Output<br><span id="heater2-pct">**</span> %</p>
-    </div> 
+        <div>
+        <h3>PID</h3>
+        PV: <span id="pid-pv">--</span><br>
+        CV: <span id="pid-cv">--</span>
+    </div>
 </div>
 
 <div class="card">
     <!-- Momentary enable -->
-    <button class="hmi-button" onmousedown="tagWrite('heater.enable', 1)" onmouseup="tagWrite('heater.enable', 0)" ontouchstart="tagWrite('heater.enable', 1)" ontouchend="tagWrite('heater.enable', 0)">
-        Start
-    </button>
-    <button class="hmi-button">Time Hold</button>
-    <button class="hmi-button">Abort</button>
-    <button class="hmi-button">Button 4</button>
-    <button class="hmi-button">Button 5</button>
+    <div class="mode-group">
+        <button class="mode-btn" data-mode="0">Off</button>
+        <button class="mode-btn" data-mode="1">OperManual</button>
+        <button class="mode-btn" data-mode="2">OperAuto</button>
+        <button class="mode-btn" data-mode="3">PgmAuto</button>
+    </div>
     <br><br>
     <label for="mode">Mode:</label>
     <select class="hmi-dropdown" id="mode" name="mode">

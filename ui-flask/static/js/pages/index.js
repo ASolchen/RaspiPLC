@@ -58,6 +58,17 @@ window.tagHandlers = [
       });
     }
   },
+  {
+  tag: "tic1.sp",
+  onUpdate: value => {
+    const el = document.getElementById("tc-sp");
+
+    // Avoid cursor jump while user is typing
+    if (document.activeElement !== el) {
+      el.value = Math.round(value);
+      }
+    }
+  }
 ];
 
 // ---------------------------------------------------------------------------
@@ -72,6 +83,7 @@ window.TAG_SUBSCRIPTIONS =
 // ---------------------------------------------------------------------------
 
 window.onTagUpdate = function (tags) {
+  //console.log("RUNTIME TAG UPDATE", tags);
   if (!tags || typeof tags !== "object") {
     console.warn("onTagUpdate called with invalid payload:", tags);
     return;
@@ -128,4 +140,16 @@ document.querySelectorAll(".mode-btn").forEach(btn => {
     const mode = parseInt(btn.dataset.mode, 10);
     tagWrite("tic1.tc.mode", mode);
   });
+});
+
+document.getElementById("tc-sp-send").addEventListener("click", () => {
+  const el = document.getElementById("tc-sp");
+  let value = parseFloat(el.value);
+
+  if (isNaN(value)) return;
+
+  // Clamp defensively (UI + MCU should agree)
+  value = Math.max(0, Math.min(500, value));
+
+  tagWrite("tic1.sp", value);
 });

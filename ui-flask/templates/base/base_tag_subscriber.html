@@ -25,7 +25,6 @@ console.log("=== base_tag_subscriber loaded ===");
 
     socket.on("tag_update", (tags) => {
         if (!tags || typeof tags !== "object") return;
-
         if (typeof window.onTagUpdate === "function") {
             window.onTagUpdate(tags);
         }

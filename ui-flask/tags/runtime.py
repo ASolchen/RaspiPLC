@@ -7,6 +7,7 @@ from tags.state import (
 )
 from tags.registry import TAGS
 from tags.usb_comm import UsbComm
+from tags.historian import get_historian
 
 NAMESPACE = "/tags"
 
@@ -65,4 +66,5 @@ def register_tag_namespace(socketio):
 def emit_tag_updates(socketio):
     updates = get_tag_updates()
     if updates:
+        get_historian().handle_tag_updates(updates)
         socketio.emit("tag_update", updates, namespace=NAMESPACE)

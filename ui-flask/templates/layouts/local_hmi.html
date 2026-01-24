@@ -6,22 +6,25 @@
 {% endblock %}
 
 {% block body %}
-<div id="app">
+<div id="kiosk-root">
+    <div id="app">
 
-    <header>
-        <div class="title">Poor-manView 1000</div>
-    </header>
+        <header>
+            <div class="title">Poor-manView 1000</div>
+        </header>
 
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+        <main id="content">
+            {% block content %}{% endblock %}
+        </main>
 
-    <footer>
-        <a href="/">Status</a>
-        <a href="/maintenance">Maintenance</a>
-        <span id="comms">●</span>
-    </footer>
+        <footer>
+            <a href="/">Status</a>
+            <a href="/temp-chart">Trend</a>
+            <a href="/maintenance">Maintenance</a>
+            <span id="comms">●</span>
+        </footer>
 
+    </div>
 </div>
 {{ super() }}
 {% endblock %}

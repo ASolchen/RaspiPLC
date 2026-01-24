@@ -7,13 +7,30 @@
 <div class="card">
     <div>
     <h3>Temp Controller</h3>
-        SP: <span id="tc-sp">--</span><br>
+        <div class="mode-group">
+            <button class="mode-btn" data-mode="0">Off</button>
+            <button class="mode-btn" data-mode="1">Oper Manual</button>
+            <button class="mode-btn" data-mode="2">Oper Auto</button>
+            <button class="mode-btn" data-mode="3">Pgm Auto</button>
+        </div>
         Mode: <span id="tc-mode">--</span><br>
         CtrlMode: <span id="tc-ctrlmode">--</span>
         </div>
+        <div class="tc-setpoint">
+        <label for="tc-sp">Setpoint (°F)</label>
+        <input
+            id="tc-sp"
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            inputmode="numeric"
+        />
+        <button id="tc-sp-send">SET</button>
+        </div>
 
         <div>
-        <h3>PID</h3>
+    <h3>PID</h3>
         PV: <span id="pid-pv">--</span><br>
         CV: <span id="pid-cv">--</span>
     </div>
@@ -21,12 +38,8 @@
 
 <div class="card">
     <!-- Momentary enable -->
-    <div class="mode-group">
-        <button class="mode-btn" data-mode="0">Off</button>
-        <button class="mode-btn" data-mode="1">OperManual</button>
-        <button class="mode-btn" data-mode="2">OperAuto</button>
-        <button class="mode-btn" data-mode="3">PgmAuto</button>
-    </div>
+     
+    
     <br><br>
     <label for="mode">Mode:</label>
     <select class="hmi-dropdown" id="mode" name="mode">

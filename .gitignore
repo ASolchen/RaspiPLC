@@ -60,3 +60,5 @@ raspiplc_*        # just in case anything ever lands in repo
 # -------------------------------------------------------------------
 *.service.bak
 
+# database
+/ui-flask/data/

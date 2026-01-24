@@ -1,4 +1,5 @@
-console.log("Temp chart JS loaded (historian-backed)");
+
+console.log("Temp chart JS loaded (record-based historian)");
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -10,12 +11,9 @@ const TAGS = [
   "tic1.pid.cv"
 ];
 
-let lastPV = null;
-let lastSP = null;
-let lastCV = null;
-
-const WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const POLL_INTERVAL_MS = 2000;   // tail poll every 2 seconds
+const WINDOW_MS = 60 * 60 * 1000;   // visible window (1 hour)
+const FETCH_LIMIT = 300;            // records per request
+const POLL_IDLE_MS = 2000;          // delay when caught up
 
 // ---------------------------------------------------------------------------
 // Chart setup
@@ -31,25 +29,27 @@ const chart = new Chart(ctx, {
       {
         label: "Process Temp (°F)",
         data: [],
-        borderWidth: 2,
         stepped: true,
         pointRadius: 0,
+        borderWidth: 2,
+        yAxisID: "y"
       },
       {
         label: "Setpoint (°F)",
         data: [],
-        borderDash: [6, 4],
-        borderWidth: 2,
         stepped: true,
         pointRadius: 0,
+        borderDash: [6, 4],
+        borderWidth: 2,
+        yAxisID: "y"
       },
       {
         label: "Control Output (%)",
         data: [],
-        borderWidth: 1,
         stepped: true,
         pointRadius: 0,
-        yAxisID: "y2",
+        borderWidth: 1,
+        yAxisID: "y2"
       }
     ]
   },
@@ -57,43 +57,23 @@ const chart = new Chart(ctx, {
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    interaction: {
-      intersect: false,
-      mode: "nearest"
-    },
     scales: {
       x: {
-        type: "time",
-        time: {
-          unit: "minute",
-          tooltipFormat: "HH:mm:ss"
-        }
+        type: "time"
       },
       y: {
+        type: "linear",
         min: 0,
         max: 500,
-        title: {
-          display: true,
-          text: "Temperature (°F)"
-        }
+        title: { display: true, text: "Temperature (°F)" }
       },
       y2: {
-        type: "linear", 
+        type: "linear",
         position: "right",
         min: 0,
         max: 100,
-        grid: {
-          drawOnChartArea: false
-        },
-        title: {
-          display: true,
-          text: "CV (%)"
-        }
-      }
-    },
-    plugins: {
-      legend: {
-        position: "top"
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: "CV (%)" }
       }
     }
   }
@@ -103,115 +83,102 @@ const chart = new Chart(ctx, {
 // State
 // ---------------------------------------------------------------------------
 
-let lastEndTs = null;
+let cursorTs = null;
+let loading = false;
+
+let lastPV = null;
+let lastSP = null;
+let lastCV = null;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function nowMs() {
-  return Date.now();
-}
+function trimWindow() {
+  const minTs = Date.now() - WINDOW_MS;
 
-function apiHistory(start, end) {
-  const params = new URLSearchParams({
-    tags: TAGS.join(","),
-    start: start.toString(),
-    end: end.toString()
-  });
-
-  return fetch(`/api/history?${params}`)
-    .then(res => {
-      if (!res.ok) {
-        throw new Error(`History API error: ${res.status}`);
-      }
-      return res.json();
-    });
-}
-
-function appendRows(rows) {
-  for (const row of rows) {
-    const ts = row.ts;
-    const tag = row.tag;
-    const value = row.value;
-
-    if (tag === "tic1.pid.pv") lastPV = value;
-    if (tag === "tic1.sp")     lastSP = value;
-    if (tag === "tic1.pid.cv") lastCV = value;
-
-    chart.data.labels.push(new Date(ts));
-    chart.data.datasets[0].data.push(lastPV);
-    chart.data.datasets[1].data.push(lastSP);
-    chart.data.datasets[2].data.push(lastCV);
-  }
-}
-
-function trimWindow(endTs) {
-  const minTs = endTs - WINDOW_MS;
-
-  while (chart.data.labels.length > 0 &&
-         chart.data.labels[0].getTime() < minTs) {
-
+  while (
+    chart.data.labels.length > 0 &&
+    chart.data.labels[0].getTime() < minTs
+  ) {
     chart.data.labels.shift();
     chart.data.datasets.forEach(ds => ds.data.shift());
   }
 
+  chart.options.scales.x.max = Date.now();
   chart.options.scales.x.min = minTs;
-  chart.options.scales.x.max = endTs;
+}
+
+function appendRows(rows) {
+  let ts = 0 
+  for (const row of rows) {
+    if (true){ //only push new values every second
+      ts = row.ts
+      //console.log(row)
+      if (row.tag === "tic1.pid.pv") lastPV = row.value;
+      if (row.tag === "tic1.sp")     lastSP = row.value;
+      if (row.tag === "tic1.pid.cv") lastCV = row.value;
+
+      chart.data.labels.push(new Date(ts));
+      chart.data.datasets[0].data.push(lastPV);
+      chart.data.datasets[1].data.push(lastSP);
+      chart.data.datasets[2].data.push(lastCV);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
-// Initial backfill
+// Unified fetch loop (record-based)
 // ---------------------------------------------------------------------------
 
-(function initialLoad() {
-  const end = nowMs();
-  const start = end - WINDOW_MS;
+function fetchHistoryStep() {
+  if (loading) return;
+  loading = true;
 
-  console.log("Initial history load");
+  const params = new URLSearchParams({
+    tags: TAGS.join(","),
+    limit: FETCH_LIMIT
+  });
 
-  apiHistory(start, end)
+  if (cursorTs !== null) {
+    params.set("after", cursorTs.toString());
+  }
+
+  fetch(`/api/history?${params}`)
+    .then(res => {
+      if (!res.ok) throw new Error(res.status);
+      return res.json();
+    })
     .then(payload => {
-      appendRows(payload.rows);
+      if (payload.rows.length > 0) {
+        appendRows(payload.rows);
+        chart.update("none");
 
-      lastEndTs = payload.end;
+        cursorTs = payload.rows[payload.rows.length - 1].ts;
+        trimWindow();
 
-      trimWindow(lastEndTs);
-      chart.update("none");
-
-      startTailPolling();
+        loading = false;
+        //console.log("Recieved "+ payload.rows.length + " samples")
+        // If we got a full chunk, more data likely exists
+        if (payload.rows.length === FETCH_LIMIT) {
+          setTimeout(fetchHistoryStep, 0);
+        } else {
+          setTimeout(fetchHistoryStep, POLL_IDLE_MS);
+        }
+      } else {
+        loading = false;
+        setTimeout(fetchHistoryStep, POLL_IDLE_MS);
+      }
     })
     .catch(err => {
-      console.error("Initial history load failed:", err);
+      console.warn("History fetch failed:", err);
+      loading = false;
+      setTimeout(fetchHistoryStep, POLL_IDLE_MS);
     });
-})();
-
-// ---------------------------------------------------------------------------
-// Tail polling
-// ---------------------------------------------------------------------------
-
-function startTailPolling() {
-  console.log("Starting tail polling");
-
-  setInterval(() => {
-    if (lastEndTs === null) return;
-
-    const end = nowMs();
-
-    apiHistory(lastEndTs, end)
-      .then(payload => {
-        if (payload.rows.length > 0) {
-          appendRows(payload.rows);
-        }
-
-        lastEndTs = payload.end;
-
-        trimWindow(lastEndTs);
-        chart.update("none");
-      })
-      .catch(err => {
-        console.warn("Tail poll failed:", err);
-      });
-
-  }, POLL_INTERVAL_MS);
 }
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+
+fetchHistoryStep();

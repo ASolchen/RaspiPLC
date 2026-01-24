@@ -5,7 +5,7 @@
 // ---------------- CONSTRUCTOR ----------------
 PIDE::PIDE()
 {
-    stat.Kp    = 3.0f;
+    stat.Kp    = 10.0f;
     stat.Ki    = 0.05f;
     stat.Kd    = 0.0f;
     stat.PvMin = 0.0f;

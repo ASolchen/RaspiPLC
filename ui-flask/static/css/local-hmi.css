@@ -193,6 +193,7 @@ flex-wrap: wrap;
     font-weight: bold;
 }
 #chart-container {
+    background-color: #000;
     position: absolute;
     inset: 0;
     padding: 10px;

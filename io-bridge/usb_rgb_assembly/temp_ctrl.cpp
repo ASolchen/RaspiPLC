@@ -7,7 +7,7 @@ TempCtrl::TempCtrl()
 {
     Mode     = TC_OFF;
     CtrlMode = TC_CTRL_OFF;
-
+    Sp = 350.0;
     pid.stat.Mode = PID_OFF;
 }
 

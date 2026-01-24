@@ -23,6 +23,7 @@ HISTORIAN_TAGS = {
 DEFAULT_QUALITY = "good"
 
 
+
 # ---------------------------------------------------------------------------
 # Historian class
 # ---------------------------------------------------------------------------
@@ -105,8 +106,10 @@ class TagHistorian:
     def query_history(
         self,
         tags: List[str],
-        start_ts: int,
-        end_ts: int,
+        *,
+        after_ts: Optional[int] = None,
+        start_ts: Optional[int] = None,
+        end_ts: Optional[int] = None,
         limit: Optional[int] = None
     ) -> List[dict]:
 
@@ -114,21 +117,45 @@ class TagHistorian:
             return []
 
         placeholders = ",".join("?" for _ in tags)
+        params = list(tags)
 
-        sql = f"""
-            SELECT ts, tag, value, quality
-            FROM tag_history
-            WHERE tag IN ({placeholders})
-              AND ts > ?
-              AND ts <= ?
-            ORDER BY ts ASC
-        """
+        # -------------------------------------------------------------
+        # Cursor-based path (preferred)
+        # -------------------------------------------------------------
+        if after_ts is not None:
+            sql = f"""
+                SELECT ts, tag, value, quality
+                FROM tag_history
+                WHERE tag IN ({placeholders})
+                  AND ts > ?
+                ORDER BY ts ASC
+            """
+            params.append(after_ts)
 
-        params = list(tags) + [start_ts, end_ts]
+            if limit:
+                sql += " LIMIT ?"
+                params.append(limit)
 
-        if limit:
-            sql += " LIMIT ?"
-            params.append(limit)
+        # -------------------------------------------------------------
+        # Time-window path (legacy / non-live charts)
+        # -------------------------------------------------------------
+        else:
+            if start_ts is None or end_ts is None:
+                return []
+
+            sql = f"""
+                SELECT ts, tag, value, quality
+                FROM tag_history
+                WHERE tag IN ({placeholders})
+                  AND ts > ?
+                  AND ts <= ?
+                ORDER BY ts ASC
+            """
+            params.extend([start_ts, end_ts])
+
+            if limit:
+                sql += " LIMIT ?"
+                params.append(limit)
 
         cur = self._conn.execute(sql, params)
         rows = cur.fetchall()
@@ -138,7 +165,7 @@ class TagHistorian:
                 "ts": row[0],
                 "tag": row[1],
                 "value": row[2],
-                "quality": row[3]
+                "quality": row[3],
             }
             for row in rows
         ]
@@ -156,6 +183,7 @@ class TagHistorian:
 # ---------------------------------------------------------------------------
 
 _historian = None
+
 
 def get_historian() -> TagHistorian:
     global _historian

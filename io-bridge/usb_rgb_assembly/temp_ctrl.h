@@ -60,8 +60,8 @@ public:
     tempctrl_ctrlmode_t CtrlMode = TC_CTRL_OFF;
 
     // Behavior parameters
-    float Deadband        = 55.0f;   // deg around SP
-    float BoostErrThresh  = 60.0f;  // deg
+    float Deadband        = 150.0f;   // deg around SP
+    float BoostErrThresh  = 160.0f;  // deg
     float BoostCv         = 100.0f; // %
     float FeedFwdCv       = 10.0f;  // %
 

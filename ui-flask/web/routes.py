@@ -27,38 +27,61 @@ def register_routes(app):
         output = "Updated project...\n"
         return render_template("pages/maintenance.html", output=output)
 
-    # -----------------------------
-    # Historian REST API
-    # -----------------------------
-
     @app.route("/api/history", methods=["GET"])
     def api_history():
         tags_param = request.args.get("tags")
         start_param = request.args.get("start")
         end_param = request.args.get("end")
+        after_param = request.args.get("after")
         limit_param = request.args.get("limit")
 
-        if not tags_param or not start_param:
-            return jsonify({"error": "tags and start are required"}), 400
+        if not tags_param:
+            return jsonify({"error": "tags are required"}), 400
 
         try:
             tags = [t.strip() for t in tags_param.split(",") if t.strip()]
-            start_ts = int(start_param)
-            end_ts = int(end_param) if end_param else int(time.time() * 1000)
             limit = int(limit_param) if limit_param else None
+
+            start_ts = int(start_param) if start_param else None
+            end_ts = int(end_param) if end_param else None
+            after_ts = int(after_param) if after_param else None
+
         except ValueError:
             return jsonify({"error": "invalid query parameters"}), 400
 
-        rows = get_historian().query_history(
-            tags=tags,
-            start_ts=start_ts,
-            end_ts=end_ts,
-            limit=limit
-        )
+        # ------------------------------------------------------------
+        # Decide query mode
+        # ------------------------------------------------------------
+
+        if after_ts is not None:
+            # Cursor-based (explicit)
+            rows = get_historian().query_history(
+                tags=tags,
+                after_ts=after_ts,
+                limit=limit
+            )
+
+        elif start_ts is not None and end_ts is not None:
+            # Time-window (legacy)
+            rows = get_historian().query_history(
+                tags=tags,
+                start_ts=start_ts,
+                end_ts=end_ts,
+                limit=limit
+            )
+
+        else:
+            # Default: cursor from beginning
+            rows = get_historian().query_history(
+                tags=tags,
+                after_ts=0,
+                limit=limit
+            )
+
+        # ------------------------------------------------------------
+        # ALWAYS return a response
+        # ------------------------------------------------------------
 
         return jsonify({
-            "start": start_ts,
-            "end": end_ts,
-            "tags": tags,
             "rows": rows
         })

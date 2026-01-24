@@ -121,7 +121,7 @@ function tagWrite(tag, value) {
 
 // Example: supervisory setpoint write (when you enable it server-side)
 function writeTempSetpoint() {
-  const el = document.getElementById("tc-sp-input");
+  const el = document.getElementById("tc-sp");
   const value = parseFloat(el.value);
 
   if (isNaN(value)) {

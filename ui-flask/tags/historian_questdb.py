@@ -49,10 +49,8 @@ class QuestDBHistorian:
             log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
         except Exception as e:
             log.error("[QuestDB] startup probe write FAILED: %s", e)
+            self.closed = True 
             raise
-        finally:
-            self.sender.close()
-            self.closed = True               
         
     # ------------------------------------------------------------------
     # Public API (matches HistorianManager expectations)

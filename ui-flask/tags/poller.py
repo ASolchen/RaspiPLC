@@ -3,6 +3,8 @@
 import time
 import struct
 from collections import defaultdict, deque
+import logging
+log = logging.getLogger(__name__)
 
 from tags.usb_comm import UsbComm
 from tags.registry import group_tags_by_command
@@ -109,7 +111,7 @@ class Poller:
 
     def run(self):
         self.running = True
-        print("[poller] started")
+        log.info("[poller] started")
 
         while self.running:
             start = time.time()
@@ -124,7 +126,7 @@ class Poller:
                 payload_rx = self._send_and_recv(frame)
                 if payload_rx is None:
                     # Write failed / timed out — log if desired
-                    # print(f"[poller] WRITE timeout obj={obj_id} cmd={cmd_id}")
+                    # log.info(f"[poller] WRITE timeout obj={obj_id} cmd={cmd_id}")
                     pass
 
                 # Do NOT return early — allow multiple writes per cycle
@@ -146,16 +148,16 @@ class Poller:
                 payload = self._send_and_recv(frame)
 
                 if payload is None:
-                    # print(f"[poller] no response obj={obj_id} cmd={cmd_id}")
+                    # log.info(f"[poller] no response obj={obj_id} cmd={cmd_id}")
                     continue
 
                 for tag in tags:
                     try:
                         value = tag.parser(payload)
                         update_tag(tag.name, value)
-                        # print(f"[poller] {tag.name} = {value}")
+                        # log.info(f"[poller] {tag.name} = {value}")
                     except Exception as e:
-                        print(f"[poller] parse error {tag.name}: {e}")
+                        log.info(f"[poller] parse error {tag.name}: {e}")
 
             # ------------------------------------------------
             # Maintain poll rate
@@ -164,7 +166,7 @@ class Poller:
             if dt < self.poll_interval:
                 time.sleep(self.poll_interval - dt)
 
-        print("[poller] stopped")
+        log.info("[poller] stopped")
 
     def stop(self):
         self.running = False

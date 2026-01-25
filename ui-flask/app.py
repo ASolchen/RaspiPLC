@@ -8,6 +8,15 @@ import platform
 from tags.usb_comm import UsbComm
 from web.routes import register_routes
 from tags.runtime import register_tag_namespace, emit_tag_updates
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+import logging
+
+log = logging.getLogger(__name__)
 
 app = Flask(__name__)
 app.config["TEMPLATES_AUTO_RELOAD"] = True

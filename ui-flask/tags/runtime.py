@@ -8,6 +8,8 @@ from tags.state import (
 from tags.registry import TAGS
 from tags.usb_comm import UsbComm
 from tags.historian import get_historian
+import logging
+log = logging.getLogger(__name__)
 
 NAMESPACE = "/tags"
 
@@ -21,10 +23,10 @@ def set_poller(poller):
 class TagNamespace(Namespace):
 
     def on_connect(self):
-        print("[tags] client connected")
+        log.info("[tags] client connected")
 
     def on_disconnect(self):
-        print("[tags] client disconnected")
+        log.info("[tags] client disconnected")
 
     def on_subscribe(self, msg):
         tags = msg.get("tags", [])

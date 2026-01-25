@@ -1,6 +1,8 @@
 # tags/state.py
 import time
 from collections import defaultdict
+import logging
+log = logging.getLogger(__name__)
 
 _TAGS = {}
 _DIRTY = set()

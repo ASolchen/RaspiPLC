@@ -11,6 +11,8 @@ Historian manager.
 import socket
 import threading
 import time
+import logging
+log = logging.getLogger(__name__)
 
 from tags.historian_null import NullHistorian
 
@@ -54,7 +56,7 @@ class HistorianManager:
         self._backend_name = "null"
         self._stop_evt = threading.Event()
 
-        print("[Historian] Starting in NULL mode")
+        log.info("[Historian] Starting in NULL mode")
 
         # Background attach / health thread
         self._thread = threading.Thread(
@@ -115,14 +117,14 @@ class HistorianManager:
             self._backend = backend
             self._backend_name = "questdb"
 
-            print("[Historian] QuestDB attached (ILP 9009)")
+            log.info("[Historian] QuestDB attached (ILP 9009)")
         except Exception as e:
-            print(f"[Historian] QuestDB attach failed: {e}")
+            log.info(f"[Historian] QuestDB attach failed: {e}")
             self._backend = NullHistorian()
             self._backend_name = "null"
 
     def _detach_backend(self):
-        print("[Historian] QuestDB disconnected, falling back to NULL")
+        log.info("[Historian] QuestDB disconnected, falling back to NULL")
         self._backend = NullHistorian()
         self._backend_name = "null"
 
@@ -147,7 +149,7 @@ class HistorianManager:
 
             except Exception as e:
                 # Never let historian monitoring kill the app
-                print(f"[Historian] Monitor error: {e}")
+                log.info(f"[Historian] Monitor error: {e}")
 
             time.sleep(RETRY_INTERVAL_SEC)
 

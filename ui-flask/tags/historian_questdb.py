@@ -1,6 +1,8 @@
 # tags/historian_questdb.py
 
 import time
+import logging
+log = logging.getLogger(__name__)
 from questdb.ingress import Sender
 
 
@@ -19,7 +21,7 @@ class QuestDBHistorian:
         self.port = port
         self.sender = Sender(host=host, port=port)
 
-        print(f"[Historian] QuestDB historian connected ({host}:{port})")
+        log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
 
     # ------------------------------------------------------------------
     # Public API (matches HistorianManager expectations)

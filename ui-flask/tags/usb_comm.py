@@ -2,7 +2,8 @@
 import serial
 import serial.serialutil
 import time
-
+import logging
+log = logging.getLogger(__name__)
 
 class UsbComm:
     def __init__(self, port, baud):
@@ -27,12 +28,12 @@ class UsbComm:
             self.ser.setDTR(False)
             self.ser.setRTS(False)
             self.connected = True
-            print(f"[UsbComm] Connected to {self.port}")
+            log.info(f"[UsbComm] Connected to {self.port}")
 
         except serial.serialutil.SerialException as e:
             self.ser = None
             self.connected = False
-            print(f"[UsbComm] Serial unavailable ({self.port}): {e}")
+            log.info(f"[UsbComm] Serial unavailable ({self.port}): {e}")
 
     # ------------------------------------------------------------
 
@@ -45,7 +46,7 @@ class UsbComm:
             self.ser.flush()
 
         except serial.serialutil.SerialException as e:
-            print(f"[UsbComm] Write failed: {e}")
+            log.info(f"[UsbComm] Write failed: {e}")
             self._handle_disconnect()
 
     # ------------------------------------------------------------
@@ -58,14 +59,14 @@ class UsbComm:
             return self.ser.read(n)
 
         except serial.serialutil.SerialException as e:
-            print(f"[UsbComm] Read failed: {e}")
+            log.info(f"[UsbComm] Read failed: {e}")
             self._handle_disconnect()
             return b""
 
     # ------------------------------------------------------------
 
     def _handle_disconnect(self):
-        print("[UsbComm] Serial disconnected")
+        log.info("[UsbComm] Serial disconnected")
         self.connected = False
         try:
             if self.ser:

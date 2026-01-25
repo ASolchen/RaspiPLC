@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Tuple
 import struct
+import logging
+log = logging.getLogger(__name__)
 
 # ---------------- Tag Definition ----------------
 

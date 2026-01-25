@@ -1,4 +1,6 @@
 # tags/historian_null.py
+import logging
+log = logging.getLogger(__name__)
 
 class NullHistorian:
     """

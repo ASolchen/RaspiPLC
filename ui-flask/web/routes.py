@@ -1,5 +1,7 @@
 from flask import render_template, request, jsonify
 import time
+import logging
+log = logging.getLogger(__name__)
 
 from tags.historian import get_historian
 

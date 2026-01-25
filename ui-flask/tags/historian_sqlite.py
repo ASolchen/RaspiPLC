@@ -5,7 +5,8 @@ import threading
 import time
 from pathlib import Path
 from typing import List, Optional
-
+import logging
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration

@@ -130,6 +130,10 @@ class HistorianManager:
 
     def _detach_backend(self):
         log.info("[Historian] QuestDB disconnected, falling back to NULL")
+        try:
+            self._backend.close()
+        except Exception:
+            pass
         self._backend = NullHistorian()
         self._backend_name = "null"
 

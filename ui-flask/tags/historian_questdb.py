@@ -25,6 +25,7 @@ class QuestDBHistorian:
             host,
             port,
         )
+        self.closed = False
 
         log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
 
@@ -38,6 +39,8 @@ class QuestDBHistorian:
 
         Raises on failure so the manager can detach.
         """
+        if self.closed:
+            raise RuntimeError("Sender is closed")  
         ts_ns = time.time_ns()
 
         try:
@@ -71,7 +74,6 @@ class QuestDBHistorian:
     # ------------------------------------------------------------------
 
     def close(self):
-        try:
+        if not self.closed:
             self.sender.close()
-        except Exception:
-            pass
+            self.closed = True

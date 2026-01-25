@@ -4,4 +4,4 @@ python-socketio==5.11.1
 python-engineio==4.9.1
 eventlet==0.35.2
 pyserial
-questdb-ingress
+questdb

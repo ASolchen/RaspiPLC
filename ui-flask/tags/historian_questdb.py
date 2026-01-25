@@ -3,7 +3,7 @@
 import time
 import logging
 log = logging.getLogger(__name__)
-from questdb.ingress import Sender
+from questdb.ingress import Sender, Protocol
 
 
 class QuestDBHistorian:
@@ -17,9 +17,14 @@ class QuestDBHistorian:
     """
 
     def __init__(self, host="127.0.0.1", port=9009):
+
         self.host = host
         self.port = port
-        self.sender = Sender(host=host, port=port)
+        self.sender = Sender(
+            Protocol.Tcp,
+            host,
+            port,
+        )
 
         log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
 

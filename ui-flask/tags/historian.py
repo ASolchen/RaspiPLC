@@ -8,6 +8,7 @@ Historian manager.
 - Flask/runtime code never cares which backend is active
 """
 
+import platform
 import socket
 import threading
 import time
@@ -19,8 +20,9 @@ from tags.historian_null import NullHistorian
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-
 QUESTDB_HOST = "127.0.0.1"
+if platform.system() == "Windows":
+    QUESTDB_HOST = "smoker.lan"
 QUESTDB_PORT = 9009
 RETRY_INTERVAL_SEC = 5.0
 SOCKET_TIMEOUT_SEC = 0.25
@@ -116,7 +118,7 @@ class HistorianManager:
             log.info("QuestDBHistorian loaded from %s", inspect.getfile(QuestDBHistorian))
             log.info("QuestDBHistorian signature: %s", inspect.signature(QuestDBHistorian))
 
-            backend = QuestDBHistorian()
+            backend = QuestDBHistorian(QUESTDB_HOST, QUESTDB_PORT)
             self._backend = backend
             self._backend_name = "questdb"
 

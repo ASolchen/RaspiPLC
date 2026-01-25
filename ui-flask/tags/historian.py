@@ -112,9 +112,9 @@ class HistorianManager:
     def _attach_questdb(self):
         try:
             import inspect
+            from tags.historian_questdb import QuestDBHistorian
             log.info("QuestDBHistorian loaded from %s", inspect.getfile(QuestDBHistorian))
             log.info("QuestDBHistorian signature: %s", inspect.signature(QuestDBHistorian))
-            from tags.historian_questdb import QuestDBHistorian
 
             backend = QuestDBHistorian()
             self._backend = backend

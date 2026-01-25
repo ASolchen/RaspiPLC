@@ -59,20 +59,13 @@ const chart = new Chart(ctx, {
     animation: false,
     scales: {
       x: {
-        type: "time",
-        grid: {
-          color: "rgba(255,255,255,0.8)"
-        }
+        type: "time"
       },
       y: {
         type: "linear",
         min: 0,
         max: 500,
-        title: { display: true, text: "Temperature (°F)" },
-        grid: {
-          color: "rgba(255,255,255,0.8)"
-        }
-      },
+        title: { display: true, text: "Temperature (°F)" }
       },
       y2: {
         type: "linear",

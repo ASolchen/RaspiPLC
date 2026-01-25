@@ -1,118 +1,139 @@
 #!/usr/bin/env bash
 set -e
 
-echo "=== RaspiPLC Install ==="
-
-PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
+echo "=== RaspiPLC install.sh ==="
 
 # ------------------------------------------------------------
-# Python virtual environment
+# Config
 # ------------------------------------------------------------
 
-if [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo "Creating Python virtual environment..."
-    python3 -m venv "$PROJECT_ROOT/venv"
+QUESTDB_VERSION="7.4.0"
+INSTALL_USER="${SUDO_USER:-$USER}"
+INSTALL_HOME=$(eval echo "~$INSTALL_USER")
+SDKMAN_DIR="$INSTALL_HOME/.sdkman"
+JAVA_VERSION="17.0.17-tem"
+QUESTDB_DIR="/opt/questdb"
+
+# ------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------
+
+log() {
+  echo -e "\n==> $1"
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "Missing required command: $1"
+    exit 1
+  }
+}
+
+# ------------------------------------------------------------
+# Preconditions
+# ------------------------------------------------------------
+
+require_cmd curl
+require_cmd tar
+require_cmd systemctl
+
+log "Installing system packages"
+sudo apt update
+sudo apt install -y curl unzip tar ca-certificates
+
+# ------------------------------------------------------------
+# SDKMAN + Java 17
+# ------------------------------------------------------------
+
+if [ ! -d "$SDKMAN_DIR" ]; then
+  log "Installing SDKMAN"
+  sudo -u "$INSTALL_USER" bash -c \
+    "curl -s https://get.sdkman.io | bash"
+else
+  log "SDKMAN already installed"
 fi
 
-source "$PROJECT_ROOT/venv/bin/activate"
+log "Loading SDKMAN"
+# shellcheck disable=SC1090
+source "$SDKMAN_DIR/bin/sdkman-init.sh"
 
-echo "Installing Python requirements..."
-pip install --upgrade pip
-pip install -r "$PROJECT_ROOT/requirements.txt"
+if ! sdk list java | grep -q "$JAVA_VERSION"; then
+  echo "ERROR: Java version $JAVA_VERSION not found via SDKMAN"
+  exit 1
+fi
 
-deactivate
+if ! sdk current java | grep -q "$JAVA_VERSION"; then
+  log "Installing Java $JAVA_VERSION"
+  sudo -u "$INSTALL_USER" bash -c \
+    "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java $JAVA_VERSION"
+else
+  log "Java $JAVA_VERSION already active"
+fi
+
+JAVA_HOME="$SDKMAN_DIR/candidates/java/$JAVA_VERSION"
+
+log "Using JAVA_HOME=$JAVA_HOME"
 
 # ------------------------------------------------------------
-# QuestDB (ARM / Raspberry Pi only)
+# QuestDB install
 # ------------------------------------------------------------
 
-install_questdb() {
-    echo "Installing QuestDB (Java 21 compatible)..."
+log "Installing QuestDB $QUESTDB_VERSION"
 
-    # --------------------------------------------------------
-    # Java (Debian trixie = Java 21)
-    # --------------------------------------------------------
-    if ! command -v java >/dev/null 2>&1; then
-        echo "Installing Java runtime..."
-        sudo apt update
-        sudo apt install -y default-jre
-    fi
+sudo mkdir -p "$QUESTDB_DIR"
+sudo chown "$INSTALL_USER:$INSTALL_USER" "$QUESTDB_DIR"
 
-    JAVA_BIN="$(readlink -f /usr/bin/java)"
-    JAVA_HOME="$(dirname "$(dirname "$JAVA_BIN")")"
+cd "$QUESTDB_DIR"
 
-    echo "Detected JAVA_HOME=$JAVA_HOME"
+if [ ! -f questdb.jar ]; then
+  curl -L \
+    "https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz" \
+    -o questdb.tar.gz
 
-    # --------------------------------------------------------
-    # QuestDB install
-    # --------------------------------------------------------
-    QUESTDB_VERSION="7.4.4"
-    QUESTDB_DIR="/opt/questdb"
+  tar xzf questdb.tar.gz --strip-components=1
+  rm questdb.tar.gz
+else
+  log "QuestDB already present"
+fi
 
-    echo "Installing QuestDB $QUESTDB_VERSION..."
+mkdir -p db log
 
-    sudo rm -rf "$QUESTDB_DIR"
-    sudo mkdir -p "$QUESTDB_DIR"
-    sudo chown "$USER":"$USER" "$QUESTDB_DIR"
+sudo chown -R "$INSTALL_USER:$INSTALL_USER" "$QUESTDB_DIR"
 
-    wget -q https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
-    tar xzf questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz -C "$QUESTDB_DIR" --strip-components=1
-    rm questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
+# ------------------------------------------------------------
+# systemd service (NO questdb.sh)
+# ------------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Runtime directories
-    # --------------------------------------------------------
-    mkdir -p "$QUESTDB_DIR/db" "$QUESTDB_DIR/log"
+log "Installing systemd service for QuestDB"
 
-    # --------------------------------------------------------
-    # env.sh (QuestDB REQUIRES THIS)
-    # --------------------------------------------------------
-    cat > "$QUESTDB_DIR/env.sh" <<EOF
-#!/usr/bin/env bash
-export JAVA_HOME=$JAVA_HOME
-export JAVA_OPTS="-Xms128m -Xmx512m"
-EOF
-
-    chmod +x "$QUESTDB_DIR/env.sh"
-
-    sudo chown -R "$USER":"$USER" "$QUESTDB_DIR"
-
-    # --------------------------------------------------------
-    # systemd service (legacy launcher model)
-    # --------------------------------------------------------
-    sudo tee /etc/systemd/system/questdb.service >/dev/null <<EOF
+sudo tee /etc/systemd/system/questdb.service >/dev/null <<EOF
 [Unit]
 Description=QuestDB
 After=network.target
 
 [Service]
-Type=forking
-User=$USER
-WorkingDirectory=/opt/questdb
-EnvironmentFile=/opt/questdb/env.sh
-ExecStart=/opt/questdb/questdb.sh start
-ExecStop=/opt/questdb/questdb.sh stop
-RemainAfterExit=yes
+Type=simple
+User=$INSTALL_USER
+WorkingDirectory=$QUESTDB_DIR
+Environment=JAVA_HOME=$JAVA_HOME
+ExecStart=$JAVA_HOME/bin/java -Xms128m -Xmx512m -jar $QUESTDB_DIR/questdb.jar -d $QUESTDB_DIR/db
+Restart=always
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    sudo systemctl daemon-reload
-    sudo systemctl enable questdb
-    sudo systemctl restart questdb
-}
+sudo systemctl daemon-reload
+sudo systemctl enable questdb
+sudo systemctl restart questdb
 
 # ------------------------------------------------------------
-# Architecture gate
+# Final verification
 # ------------------------------------------------------------
 
-ARCH="$(uname -m)"
+log "QuestDB status"
+systemctl status questdb --no-pager || true
 
-if [[ "$ARCH" == arm* || "$ARCH" == aarch64 ]]; then
-    install_questdb
-else
-    echo "Skipping QuestDB install (non-ARM system)"
-fi
-
-echo "=== Install complete ==="
+log "Install complete"
+echo "QuestDB UI should be available at: http://localhost:9000"

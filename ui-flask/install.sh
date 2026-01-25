@@ -6,7 +6,7 @@ echo "=== RaspiPLC Install ==="
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # ------------------------------------------------------------
-# Python venv + deps
+# Python virtual environment
 # ------------------------------------------------------------
 
 if [ ! -d "$PROJECT_ROOT/venv" ]; then
@@ -23,14 +23,14 @@ pip install -r "$PROJECT_ROOT/requirements.txt"
 deactivate
 
 # ------------------------------------------------------------
-# QuestDB install (ARM only)
+# QuestDB (ARM / Raspberry Pi only)
 # ------------------------------------------------------------
 
 install_questdb() {
-    echo "Installing QuestDB..."
+    echo "Installing QuestDB (Java 21 compatible)..."
 
     # --------------------------------------------------------
-    # Java runtime (QuestDB REQUIRES JAVA_HOME)
+    # Java (Debian trixie = Java 21)
     # --------------------------------------------------------
     if ! command -v java >/dev/null 2>&1; then
         echo "Installing Java runtime..."
@@ -38,32 +38,34 @@ install_questdb() {
         sudo apt install -y default-jre
     fi
 
-    # Detect JAVA_HOME dynamically
     JAVA_BIN="$(readlink -f /usr/bin/java)"
     JAVA_HOME="$(dirname "$(dirname "$JAVA_BIN")")"
 
     echo "Detected JAVA_HOME=$JAVA_HOME"
 
     # --------------------------------------------------------
-    # QuestDB files
+    # QuestDB install
     # --------------------------------------------------------
-    QUESTDB_VERSION="7.3.1"
+    QUESTDB_VERSION="7.4.4"
     QUESTDB_DIR="/opt/questdb"
 
-    if [ ! -d "$QUESTDB_DIR" ]; then
-        echo "Downloading QuestDB..."
-        sudo mkdir -p "$QUESTDB_DIR"
-        sudo chown "$USER":"$USER" "$QUESTDB_DIR"
+    echo "Installing QuestDB $QUESTDB_VERSION..."
 
-        wget -q https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
-        tar xzf questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz -C "$QUESTDB_DIR" --strip-components=1
-        rm questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
-    else
-        echo "QuestDB already installed"
-    fi
+    sudo rm -rf "$QUESTDB_DIR"
+    sudo mkdir -p "$QUESTDB_DIR"
+    sudo chown "$USER":"$USER" "$QUESTDB_DIR"
+
+    wget -q https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
+    tar xzf questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz -C "$QUESTDB_DIR" --strip-components=1
+    rm questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
 
     # --------------------------------------------------------
-    # Write env.sh (CRITICAL for QuestDB)
+    # Runtime directories
+    # --------------------------------------------------------
+    mkdir -p "$QUESTDB_DIR/db" "$QUESTDB_DIR/log"
+
+    # --------------------------------------------------------
+    # env.sh (QuestDB REQUIRES THIS)
     # --------------------------------------------------------
     cat > "$QUESTDB_DIR/env.sh" <<EOF
 #!/usr/bin/env bash
@@ -73,31 +75,28 @@ EOF
 
     chmod +x "$QUESTDB_DIR/env.sh"
 
-    # --------------------------------------------------------
-    # systemd service (foreground mode)
-    # --------------------------------------------------------
-    if [ ! -f /etc/systemd/system/questdb.service ]; then
-        echo "Installing QuestDB systemd service..."
+    sudo chown -R "$USER":"$USER" "$QUESTDB_DIR"
 
-        sudo tee /etc/systemd/system/questdb.service >/dev/null <<EOF
+    # --------------------------------------------------------
+    # systemd service (legacy launcher model)
+    # --------------------------------------------------------
+    sudo tee /etc/systemd/system/questdb.service >/dev/null <<EOF
 [Unit]
 Description=QuestDB
 After=network.target
 
 [Service]
-Type=simple
+Type=forking
 User=$USER
 WorkingDirectory=/opt/questdb
-ExecStart=/usr/bin/env bash -c 'source /opt/questdb/env.sh && exec /opt/questdb/questdb.sh start -f'
-Restart=always
-RestartSec=5
+EnvironmentFile=/opt/questdb/env.sh
+ExecStart=/opt/questdb/questdb.sh start
+ExecStop=/opt/questdb/questdb.sh stop
+RemainAfterExit=yes
 
 [Install]
 WantedBy=multi-user.target
 EOF
-    else
-        echo "QuestDB systemd service already exists"
-    fi
 
     sudo systemctl daemon-reload
     sudo systemctl enable questdb
@@ -105,7 +104,7 @@ EOF
 }
 
 # ------------------------------------------------------------
-# Architecture gate (only install QuestDB on Pi / ARM)
+# Architecture gate
 # ------------------------------------------------------------
 
 ARCH="$(uname -m)"

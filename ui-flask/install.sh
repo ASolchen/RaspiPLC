@@ -31,9 +31,9 @@ install_questdb() {
 
     # Java runtime (required by QuestDB)
     if ! command -v java >/dev/null 2>&1; then
-        echo "Installing OpenJDK 17..."
+        echo "Installing OpenJDK..."
         sudo apt update
-        sudo apt install -y openjdk-17-jre
+        sudo apt install -y default-jre
     fi
 
     QUESTDB_VERSION="7.3.1"

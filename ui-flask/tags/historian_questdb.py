@@ -6,7 +6,7 @@ import requests
 import logging
 
 log = logging.getLogger(__name__)
-from questdb.ingress import Sender, Protocol
+from questdb.ingress import Sender, Protocol, TimestampNanos
 
 
 class QuestDBHistorian:
@@ -28,10 +28,32 @@ class QuestDBHistorian:
             host,
             port,
         )
-        self.closed = False
-
-        log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
-
+        
+        
+        # ---- PROBE WRITE (one-time sanity check) ----
+        try:
+            self.sender.establish()
+            self.sender.row(
+                "tag_history",
+                symbols={
+                    "tag": "__startup_probe__",
+                    "quality": "good",
+                },
+                columns={
+                    "value": 0.0,
+                },
+                at=TimestampNanos(time.time_ns())
+            )
+            self.sender.flush()
+            self.closed = False
+            log.info(f"[Historian] QuestDB historian connected ({host}:{port})")
+        except Exception as e:
+            log.error("[QuestDB] startup probe write FAILED: %s", e)
+            raise
+        finally:
+            self.sender.close()
+            self.closed = True               
+        
     # ------------------------------------------------------------------
     # Public API (matches HistorianManager expectations)
     # ------------------------------------------------------------------

@@ -1,30 +1,70 @@
 # tags/historian_questdb.py
 
-from questdb.ingress import Sender
-import socket
 import time
+from questdb.ingress import Sender
 
 
 class QuestDBHistorian:
+    """
+    QuestDB historian backend using ILP over TCP (port 9009).
+
+    This class is intentionally thin:
+    - no retry logic
+    - no attach/detach logic
+    - raises on failure so HistorianManager can react
+    """
+
     def __init__(self, host="127.0.0.1", port=9009):
         self.host = host
         self.port = port
         self.sender = Sender(host=host, port=port)
-        print("[Historian] QuestDB connected")
 
-    def handle_tag_updates(self, updates: dict):
-        ts_ns = int(time.time() * 1e9)
+        print(f"[Historian] QuestDB historian connected ({host}:{port})")
 
-        for tag, value in updates.items():
+    # ------------------------------------------------------------------
+    # Public API (matches HistorianManager expectations)
+    # ------------------------------------------------------------------
+
+    def record(self, tag: str, value, quality="good"):
+        """
+        Record a single tag sample.
+
+        Raises on failure so the manager can detach.
+        """
+        ts_ns = time.time_ns()
+
+        try:
             self.sender.row(
                 "tag_history",
-                symbols={"tag": tag},
-                columns={"value": float(value)},
-                at=ts_ns
+                symbols={
+                    "tag": tag,
+                    "quality": str(quality),
+                },
+                columns={
+                    "value": float(value),
+                },
+                at=ts_ns,
             )
+            self.sender.flush()
 
-        self.sender.flush()
+        except Exception:
+            # Let the manager handle fallback
+            raise
 
-    def query_history(self, *args, **kwargs):
-        # Optional later via HTTP SQL
+    def query(self, *args, **kwargs):
+        """
+        Historical query via QuestDB HTTP SQL (future).
+
+        For now, return empty and let REST layer handle it.
+        """
         return []
+
+    # ------------------------------------------------------------------
+    # Optional cleanup hook
+    # ------------------------------------------------------------------
+
+    def close(self):
+        try:
+            self.sender.close()
+        except Exception:
+            pass

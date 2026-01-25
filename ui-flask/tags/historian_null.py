@@ -1,8 +1,20 @@
 # tags/historian_null.py
 
 class NullHistorian:
-    def handle_tag_updates(self, updates: dict):
-        pass
+    """
+    No-op historian backend.
 
-    def query_history(self, *args, **kwargs):
+    Safe default when no real historian is available.
+    """
+
+    def record(self, tag: str, value, quality="good"):
+        # Intentionally do nothing
+        return
+
+    def query(self, *args, **kwargs):
+        # No history available
         return []
+
+    def close(self):
+        # Optional cleanup hook
+        return

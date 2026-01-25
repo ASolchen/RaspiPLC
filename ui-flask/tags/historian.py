@@ -15,7 +15,6 @@ import logging
 log = logging.getLogger(__name__)
 
 from tags.historian_null import NullHistorian
-from tags.historian_questdb import QuestDBHistorian
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -112,6 +111,9 @@ class HistorianManager:
 
     def _attach_questdb(self):
         try:
+            import inspect
+            log.info("QuestDBHistorian loaded from %s", inspect.getfile(QuestDBHistorian))
+            log.info("QuestDBHistorian signature: %s", inspect.signature(QuestDBHistorian))
             from tags.historian_questdb import QuestDBHistorian
 
             backend = QuestDBHistorian()

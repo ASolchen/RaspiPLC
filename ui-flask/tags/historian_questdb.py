@@ -2,6 +2,9 @@
 
 import time
 import logging
+import requests
+import logging
+
 log = logging.getLogger(__name__)
 from questdb.ingress import Sender, Protocol
 
@@ -61,19 +64,81 @@ class QuestDBHistorian:
             # Let the manager handle fallback
             raise
 
-    def query(self, *args, **kwargs):
+    def query(
+        self,
+        tags,
+        after_ts: int = 0,
+        limit: int = 1000,
+    ):
         """
-        Historical query via QuestDB HTTP SQL (future).
+        Query historical tag data from QuestDB via HTTP SQL.
 
-        For now, return empty and let REST layer handle it.
+        Returns rows in the format:
+        {
+            "ts": <int ns>,
+            "tag": <str>,
+            "value": <float>,
+            "quality": <str>
+        }
         """
-        return []
 
-    # ------------------------------------------------------------------
-    # Optional cleanup hook
-    # ------------------------------------------------------------------
+        if not tags:
+            return []
 
-    def close(self):
-        if not self.closed:
-            self.sender.close()
-            self.closed = True
+        # Build IN ('tag1','tag2',...)
+        tag_list = ",".join(f"'{t}'" for t in tags)
+
+        sql = f"""
+            SELECT
+                ts,
+                tag,
+                value,
+                quality
+            FROM tag_history
+            WHERE tag IN ({tag_list})
+              AND ts > {int(after_ts)}
+            ORDER BY ts
+            LIMIT {int(limit)}
+        """
+
+        url = f"http://{self.host}:9000/exec"
+
+        try:
+            resp = requests.get(
+                url,
+                params={"query": sql},
+                timeout=2,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+
+        except Exception as e:
+            log.warning("[QuestDB] query failed: %s", e)
+            return []
+
+        # QuestDB returns column-oriented JSON
+        columns = payload.get("columns", [])
+        dataset = payload.get("dataset", [])
+
+        if not columns or not dataset:
+            return []
+
+        col_idx = {col["name"]: i for i, col in enumerate(columns)}
+
+        rows = []
+        for row in dataset:
+            try:
+                rows.append(
+                    {
+                        "ts": row[col_idx["ts"]],
+                        "tag": row[col_idx["tag"]],
+                        "value": row[col_idx["value"]],
+                        "quality": row[col_idx.get("quality", -1)]
+                        if "quality" in col_idx
+                        else None,
+                    }
+                )
+            except Exception as e:
+                log.debug("[QuestDB] bad row skipped: %s (%s)", row, e)
+
+        return rows

@@ -15,6 +15,7 @@ import logging
 log = logging.getLogger(__name__)
 
 from tags.historian_null import NullHistorian
+from tags.historian_questdb import QuestDBHistorian
 
 # ---------------------------------------------------------------------------
 # Configuration

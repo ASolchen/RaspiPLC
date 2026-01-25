@@ -82,6 +82,13 @@ class HistorianManager:
         """
         with self._lock:
             return self._backend.query(*args, **kwargs)
+    
+    def query_history(self, *args, **kwargs):
+        """
+        Backwards-compatible alias for legacy callers.
+        """
+        return self.query(*args, **kwargs)
+
 
     # ------------------------
     # Backend management

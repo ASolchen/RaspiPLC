@@ -4,6 +4,7 @@ from threading import Thread
 import time
 
 from tags.poller import Poller
+import platform
 from tags.usb_comm import UsbComm
 from web.routes import register_routes
 from tags.runtime import register_tag_namespace, emit_tag_updates
@@ -15,7 +16,13 @@ app.config["SECRET_KEY"] = "dev"
 
 socketio = SocketIO(app, async_mode="threading")
 # ---------------- Hardware poller ----------------
-usb = UsbComm("COM8", 500000)
+
+if platform.system() == "Windows":
+    port = "COM8"
+else:
+    port = "/dev/ttyUSB0"
+
+usb = UsbComm(port, 500000)
 poller = Poller(usb)
 from tags.runtime import set_poller
 set_poller(poller)

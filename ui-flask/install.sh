@@ -29,13 +29,24 @@ deactivate
 install_questdb() {
     echo "Installing QuestDB..."
 
-    # Java runtime (required by QuestDB)
+    # --------------------------------------------------------
+    # Java runtime (QuestDB REQUIRES JAVA_HOME)
+    # --------------------------------------------------------
     if ! command -v java >/dev/null 2>&1; then
-        echo "Installing OpenJDK..."
+        echo "Installing Java runtime..."
         sudo apt update
         sudo apt install -y default-jre
     fi
 
+    # Detect JAVA_HOME dynamically
+    JAVA_BIN="$(readlink -f /usr/bin/java)"
+    JAVA_HOME="$(dirname "$(dirname "$JAVA_BIN")")"
+
+    echo "Detected JAVA_HOME=$JAVA_HOME"
+
+    # --------------------------------------------------------
+    # QuestDB files
+    # --------------------------------------------------------
     QUESTDB_VERSION="7.3.1"
     QUESTDB_DIR="/opt/questdb"
 
@@ -52,9 +63,19 @@ install_questdb() {
     fi
 
     # --------------------------------------------------------
-    # systemd service
+    # Write env.sh (CRITICAL for QuestDB)
     # --------------------------------------------------------
+    cat > "$QUESTDB_DIR/env.sh" <<EOF
+#!/usr/bin/env bash
+export JAVA_HOME=$JAVA_HOME
+export JAVA_OPTS="-Xms128m -Xmx512m"
+EOF
 
+    chmod +x "$QUESTDB_DIR/env.sh"
+
+    # --------------------------------------------------------
+    # systemd service (foreground mode)
+    # --------------------------------------------------------
     if [ ! -f /etc/systemd/system/questdb.service ]; then
         echo "Installing QuestDB systemd service..."
 
@@ -67,21 +88,25 @@ After=network.target
 Type=simple
 User=$USER
 WorkingDirectory=/opt/questdb
-ExecStart=/opt/questdb/bin/questdb.sh start
+ExecStart=/usr/bin/env bash -c 'source /opt/questdb/env.sh && exec /opt/questdb/questdb.sh start -f'
 Restart=always
 RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
-
-        sudo systemctl daemon-reload
-        sudo systemctl enable questdb
-        sudo systemctl start questdb
     else
         echo "QuestDB systemd service already exists"
     fi
+
+    sudo systemctl daemon-reload
+    sudo systemctl enable questdb
+    sudo systemctl restart questdb
 }
+
+# ------------------------------------------------------------
+# Architecture gate (only install QuestDB on Pi / ARM)
+# ------------------------------------------------------------
 
 ARCH="$(uname -m)"
 

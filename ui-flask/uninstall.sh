@@ -1,19 +1,35 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
-SERVICE_NAME="raspiplc-ui.service"
-BASE_DIR="/home/engineer/RaspiPLC/ui-flask"
-SYSTEMD_DIR="/etc/systemd/system"
+echo "=== RaspiPLC Uninstall ==="
 
-echo "[uninstall] Stopping RaspiPLC UI service..."
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
-systemctl stop "$SERVICE_NAME" || true
-systemctl disable "$SERVICE_NAME" || true
-rm -f "$SYSTEMD_DIR/$SERVICE_NAME"
+# ------------------------------------------------------------
+# Remove Python venv
+# ------------------------------------------------------------
 
-systemctl daemon-reexec
-systemctl daemon-reload
+if [ -d "$PROJECT_ROOT/venv" ]; then
+    echo "Removing Python virtual environment..."
+    rm -rf "$PROJECT_ROOT/venv"
+fi
 
-echo "[uninstall] Service removed"
-echo "[uninstall] Source code and venv preserved at:"
-echo "            $BASE_DIR"
+# ------------------------------------------------------------
+# QuestDB uninstall (if present)
+# ------------------------------------------------------------
+
+if [ -f /etc/systemd/system/questdb.service ]; then
+    echo "Stopping and removing QuestDB service..."
+
+    sudo systemctl stop questdb || true
+    sudo systemctl disable questdb || true
+    sudo rm -f /etc/systemd/system/questdb.service
+    sudo systemctl daemon-reload
+fi
+
+if [ -d /opt/questdb ]; then
+    echo "Removing QuestDB files..."
+    sudo rm -rf /opt/questdb
+fi
+
+echo "=== Uninstall complete ==="

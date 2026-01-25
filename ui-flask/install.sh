@@ -1,139 +1,89 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -e
 
-echo "=== RaspiPLC install.sh ==="
+UI_SERVICE="raspiplc-ui.service"
+QDB_SERVICE="questdb.service"
 
-# ------------------------------------------------------------
-# Config
-# ------------------------------------------------------------
+BASE_DIR="/home/engineer/RaspiPLC/ui-flask"
+VENV_DIR="$BASE_DIR/venv"
+SYSTEMD_DIR="/etc/systemd/system"
 
-QUESTDB_VERSION="7.4.0"
-INSTALL_USER="${SUDO_USER:-$USER}"
-INSTALL_HOME=$(eval echo "~$INSTALL_USER")
-SDKMAN_DIR="$INSTALL_HOME/.sdkman"
-JAVA_VERSION="17.0.17-tem"
 QUESTDB_DIR="/opt/questdb"
+QUESTDB_VERSION="7.4.4"
 
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
+echo "[install] Installing RaspiPLC UI + QuestDB"
 
-log() {
-  echo -e "\n==> $1"
-}
+# ------------------------------------------------------------------
+# System dependencies
+# ------------------------------------------------------------------
+echo "[install] Installing system packages..."
+apt-get update
+apt-get install -y \
+    python3 \
+    python3-venv \
+    curl \
+    wget \
+    tar \
+    ca-certificates
 
-require_cmd() {
-  command -v "$1" >/dev/null 2>&1 || {
-    echo "Missing required command: $1"
-    exit 1
-  }
-}
+# ------------------------------------------------------------------
+# Python virtual environment
+# ------------------------------------------------------------------
+if [ ! -d "$VENV_DIR" ]; then
+    echo "[install] Creating Python venv..."
+    python3 -m venv "$VENV_DIR"
+fi
 
-# ------------------------------------------------------------
-# Preconditions
-# ------------------------------------------------------------
+echo "[install] Upgrading pip..."
+"$VENV_DIR/bin/pip" install --upgrade pip
 
-require_cmd curl
-require_cmd tar
-require_cmd systemctl
+# ------------------------------------------------------------------
+# Python dependencies (UI + historian)
+# ------------------------------------------------------------------
+echo "[install] Installing Python dependencies..."
 
-log "Installing system packages"
-sudo apt update
-sudo apt install -y curl unzip tar ca-certificates
+"$VENV_DIR/bin/pip" uninstall -y \
+    flask-socketio \
+    python-socketio \
+    python-engineio \
+    eventlet || true
 
-# ------------------------------------------------------------
-# SDKMAN + Java 17
-# ------------------------------------------------------------
+echo "[install] Installing Python dependencies from requirements.txt..."
+"$VENV_DIR/bin/pip" install -r "$BASE_DIR/requirements.txt"
 
-if [ ! -d "$SDKMAN_DIR" ]; then
-  log "Installing SDKMAN"
-  sudo -u "$INSTALL_USER" bash -c \
-    "curl -s https://get.sdkman.io | bash"
+# ------------------------------------------------------------------
+# QuestDB binaries (NO service logic here)
+# ------------------------------------------------------------------
+if [ ! -d "$QUESTDB_DIR" ]; then
+    echo "[install] Installing QuestDB ${QUESTDB_VERSION}..."
+    mkdir -p "$QUESTDB_DIR"
+    cd /tmp
+
+    wget -q https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
+    tar -xzf questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz
+    cp -r questdb-${QUESTDB_VERSION}-no-jre-bin/* "$QUESTDB_DIR"
+
+    rm -rf questdb-${QUESTDB_VERSION}-no-jre-bin*
 else
-  log "SDKMAN already installed"
+    echo "[install] QuestDB already installed"
 fi
 
-log "Loading SDKMAN"
-# shellcheck disable=SC1090
-source "$SDKMAN_DIR/bin/sdkman-init.sh"
+# ------------------------------------------------------------------
+# Systemd services
+# ------------------------------------------------------------------
+echo "[install] Installing systemd service files..."
 
-if ! sdk list java | grep -q "$JAVA_VERSION"; then
-  echo "ERROR: Java version $JAVA_VERSION not found via SDKMAN"
-  exit 1
-fi
+cp "$BASE_DIR/$UI_SERVICE" "$SYSTEMD_DIR/"
+cp "$BASE_DIR/$QDB_SERVICE" "$SYSTEMD_DIR/"
 
-if ! sdk current java | grep -q "$JAVA_VERSION"; then
-  log "Installing Java $JAVA_VERSION"
-  sudo -u "$INSTALL_USER" bash -c \
-    "source $SDKMAN_DIR/bin/sdkman-init.sh && sdk install java $JAVA_VERSION"
-else
-  log "Java $JAVA_VERSION already active"
-fi
+systemctl daemon-reexec
+systemctl daemon-reload
 
-JAVA_HOME="$SDKMAN_DIR/candidates/java/$JAVA_VERSION"
+systemctl enable "$UI_SERVICE"
+systemctl enable "$QDB_SERVICE"
 
-log "Using JAVA_HOME=$JAVA_HOME"
-
-# ------------------------------------------------------------
-# QuestDB install
-# ------------------------------------------------------------
-
-log "Installing QuestDB $QUESTDB_VERSION"
-
-sudo mkdir -p "$QUESTDB_DIR"
-sudo chown "$INSTALL_USER:$INSTALL_USER" "$QUESTDB_DIR"
-
-cd "$QUESTDB_DIR"
-
-if [ ! -f questdb.jar ]; then
-  curl -L \
-    "https://github.com/questdb/questdb/releases/download/${QUESTDB_VERSION}/questdb-${QUESTDB_VERSION}-no-jre-bin.tar.gz" \
-    -o questdb.tar.gz
-
-  tar xzf questdb.tar.gz --strip-components=1
-  rm questdb.tar.gz
-else
-  log "QuestDB already present"
-fi
-
-mkdir -p db log
-
-sudo chown -R "$INSTALL_USER:$INSTALL_USER" "$QUESTDB_DIR"
-
-# ------------------------------------------------------------
-# systemd service (NO questdb.sh)
-# ------------------------------------------------------------
-
-log "Installing systemd service for QuestDB"
-
-sudo tee /etc/systemd/system/questdb.service >/dev/null <<EOF
-[Unit]
-Description=QuestDB
-After=network.target
-
-[Service]
-Type=simple
-User=$INSTALL_USER
-WorkingDirectory=$QUESTDB_DIR
-Environment=JAVA_HOME=$JAVA_HOME
-ExecStart=$JAVA_HOME/bin/java -Xms128m -Xmx512m -jar $QUESTDB_DIR/questdb.jar -d $QUESTDB_DIR/db
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable questdb
-sudo systemctl restart questdb
-
-# ------------------------------------------------------------
-# Final verification
-# ------------------------------------------------------------
-
-log "QuestDB status"
-systemctl status questdb --no-pager || true
-
-log "Install complete"
-echo "QuestDB UI should be available at: http://localhost:9000"
+echo
+echo "[install] Installation complete"
+echo "[install] Start services with:"
+echo "  systemctl start questdb"
+echo "  systemctl start raspiplc-ui"

@@ -1,0 +1,33 @@
+[Unit]
+Description=QuestDB Time-Series Database
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=engineer
+Group=engineer
+
+# QuestDB locations
+Environment=QDB_HOME=/opt/questdb
+Environment=QDB_DB_PATH=/opt/questdb/db
+
+# SDKMAN Java 17 (explicit, stable)
+Environment=JAVA_HOME=/home/engineer/.sdkman/candidates/java/current
+Environment=PATH=/home/engineer/.sdkman/candidates/java/current/bin:/usr/bin:/bin
+
+WorkingDirectory=/opt/questdb
+
+# IMPORTANT: run QuestDB in foreground (do NOT use questdb.sh start)
+ExecStart=/home/engineer/.sdkman/candidates/java/current/bin/java \
+    -Xms128m \
+    -Xmx512m \
+    -jar /opt/questdb/questdb.jar \
+    -d /opt/questdb/db
+
+Restart=always
+RestartSec=5
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

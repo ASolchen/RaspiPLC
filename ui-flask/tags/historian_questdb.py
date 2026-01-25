@@ -3,7 +3,9 @@
 import time
 import logging
 import requests
+from urllib.parse import quote
 import logging
+
 
 log = logging.getLogger(__name__)
 from questdb.ingress import Sender, Protocol, TimestampNanos
@@ -108,27 +110,23 @@ class QuestDBHistorian:
         # Build IN ('tag1','tag2',...)
         tag_list = ",".join(f"'{t}'" for t in tags)
 
-        sql = f"""
-            SELECT
-                ts,
-                tag,
-                value,
-                quality
-            FROM tag_history
-            WHERE tag IN ({tag_list})
-              AND ts > {int(after_ts)}
-            ORDER BY ts
-            LIMIT {int(limit)}
+        sql = f"""SELECT
+                    tag,
+                    avg(value) AS value,
+                    timestamp
+                FROM tag_history
+                WHERE tag IN ({tag_list})
+                AND timestamp > {after_ts}
+                SAMPLE BY 10s
+                ORDER BY timestamp
+                LIMIT {int(limit)};
         """
-
-        url = f"http://{self.host}:9000/exec"
+        encoded_sql = quote(sql)
+        base_url = f"http://{self.host}:9000"
+        url = f"{base_url}/exec?query={encoded_sql}&fmt=json"
 
         try:
-            resp = requests.get(
-                url,
-                params={"query": sql},
-                timeout=2,
-            )
+            resp = requests.get(url,timeout=2)
             resp.raise_for_status()
             payload = resp.json()
 
@@ -150,7 +148,7 @@ class QuestDBHistorian:
             try:
                 rows.append(
                     {
-                        "ts": row[col_idx["ts"]],
+                        "timestamp": row[col_idx["timestamp"]],
                         "tag": row[col_idx["tag"]],
                         "value": row[col_idx["value"]],
                         "quality": row[col_idx.get("quality", -1)]

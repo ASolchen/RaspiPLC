@@ -127,7 +127,7 @@ function appendRows(rows) {
   let ts = 0 
   for (const row of rows) {
     if (true){ //only push new values every second
-      ts = row.ts
+      ts = row.timestamp
       //console.log(row)
       if (row.tag === "tic1.pid.pv") lastPV = row.value;
       if (row.tag === "tic1.sp")     lastSP = row.value;

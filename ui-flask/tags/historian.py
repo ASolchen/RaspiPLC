@@ -75,6 +75,19 @@ class HistorianManager:
         """
         with self._lock:
             self._backend.record(tag, value, quality)
+    
+    def handle_tag_updates(self, updates: dict):
+        """
+        Backwards-compatible handler for legacy callers.
+
+        Expects: { tag_name: value }
+        """
+        for tag, value in updates.items():
+            try:
+                self.record(tag, value)
+            except Exception:
+                # Never let historian failures break runtime
+                pass
 
     def query(self, *args, **kwargs):
         """

@@ -76,7 +76,7 @@ class QuestDBHistorian:
                 columns={
                     "value": float(value),
                 },
-                at=ts_ns,
+                at=TimestampNanos(ts_ns),
             )
             self.sender.flush()
 

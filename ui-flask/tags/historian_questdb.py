@@ -86,18 +86,13 @@ class QuestDBHistorian:
             # Let the manager handle fallback
             raise
 
-    def query(
-        self,
-        tags,
-        after_ts: int = 0,
-        limit: int = 1000,
-    ):
+    def query(self, tags, start_ts, end_ts, interval):
         """
         Query historical tag data from QuestDB via HTTP SQL.
 
         Returns rows in the format:
         {
-            "ts": <int ns>,
+            "timestamp": <int ns>,
             "tag": <str>,
             "value": <float>,
             "quality": <str>
@@ -116,10 +111,9 @@ class QuestDBHistorian:
                     timestamp
                 FROM tag_history
                 WHERE tag IN ({tag_list})
-                AND timestamp > {after_ts}
-                SAMPLE BY 10s
-                ORDER BY timestamp
-                LIMIT {int(limit)};
+                AND timestamp BETWEEN {start_ts*1000} AND {end_ts*1000}
+                SAMPLE BY {interval}s
+                ORDER BY timestamp;
         """
         encoded_sql = quote(sql)
         base_url = f"http://{self.host}:9000"

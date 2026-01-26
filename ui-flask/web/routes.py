@@ -32,21 +32,16 @@ def register_routes(app):
     @app.route("/api/history", methods=["GET"])
     def api_history():
         tags_param = request.args.get("tags")
-        start_param = request.args.get("start")
-        end_param = request.args.get("end")
-        after_param = request.args.get("after")
-        limit_param = request.args.get("limit")
+        
 
         if not tags_param:
             return jsonify({"error": "tags are required"}), 400
 
         try:
+            start_param = int(request.args.get("start")) #js Date
+            end_param = int(request.args.get("end")) #js Date
+            interval = int(request.args.get("interval")) # seconds
             tags = [t.strip() for t in tags_param.split(",") if t.strip()]
-            limit = int(limit_param) if limit_param else None
-
-            start_ts = int(start_param) if start_param else None
-            end_ts = int(end_param) if end_param else None
-            after_ts = int(after_param) if after_param else None
 
         except ValueError:
             return jsonify({"error": "invalid query parameters"}), 400
@@ -55,30 +50,7 @@ def register_routes(app):
         # Decide query mode
         # ------------------------------------------------------------
 
-        if after_ts is not None:
-            # Cursor-based (explicit)
-            rows = get_historian().query_history(
-                tags=tags,
-                after_ts=after_ts,
-                limit=limit
-            )
-
-        elif start_ts is not None and end_ts is not None:
-            # Time-window (legacy)
-            rows = get_historian().query_history(
-                tags=tags,
-                start_ts=start_ts,
-                end_ts=end_ts,
-                limit=limit
-            )
-
-        else:
-            # Default: cursor from beginning
-            rows = get_historian().query_history(
-                tags=tags,
-                after_ts=0,
-                limit=limit
-            )
+        rows = get_historian().query_history(tags, start_param, end_param, interval)
 
         # ------------------------------------------------------------
         # ALWAYS return a response

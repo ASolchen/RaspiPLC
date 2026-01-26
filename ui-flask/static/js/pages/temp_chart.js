@@ -1,4 +1,12 @@
+function getSpanMinutes(defaultMinutes = 60) {
+  const params = new URLSearchParams(window.location.search);
+  const span = parseInt(params.get("span"), 10);
 
+  if (Number.isFinite(span) && span > 0) {
+    return span;
+  }
+  return defaultMinutes;
+}
 console.log("Temp chart JS loaded (record-based historian)");
 
 // ---------------------------------------------------------------------------
@@ -10,10 +18,11 @@ const TAGS = [
   "tic1.sp",
   "tic1.pid.cv"
 ];
-
-const WINDOW_MS = 60 * 60 * 1000;   // visible window (1 hour)
+const SPAN_MINUTES = getSpanMinutes(60);
+const WINDOW_MS = SPAN_MINUTES * 60 * 1000;   // visible window (1 hour default)
 const FETCH_LIMIT = 300;            // records per request
 const POLL_IDLE_MS = 2000;          // delay when caught up
+let cursorTs = (Date.now() - WINDOW_MS) //start of our query, moves up every fetch
 
 // ---------------------------------------------------------------------------
 // Chart setup
@@ -60,6 +69,8 @@ const chart = new Chart(ctx, {
     scales: {
       x: {
         type: "time",
+        max : (Date.now()-0),
+        min: cursorTs,
         ticks: {
           color: "#fff"
         },
@@ -97,7 +108,6 @@ const chart = new Chart(ctx, {
 // State
 // ---------------------------------------------------------------------------
 
-let cursorTs = null;
 let loading = false;
 
 let lastPV = null;
@@ -128,7 +138,6 @@ function appendRows(rows) {
   for (const row of rows) {
     if (true){ //only push new values every second
       ts = row.timestamp
-      //console.log(row)
       if (row.tag === "tic1.pid.pv") lastPV = row.value;
       if (row.tag === "tic1.sp")     lastSP = row.value;
       if (row.tag === "tic1.pid.cv") lastCV = row.value;
@@ -151,12 +160,10 @@ function fetchHistoryStep() {
 
   const params = new URLSearchParams({
     tags: TAGS.join(","),
-    limit: FETCH_LIMIT
+    start: (cursorTs-0),
+    end: (Date.now() - 0),
+    interval: Math.max(1, SPAN_MINUTES / 10.0) //60min=10sec, 1440 minutes(day) = 144 sec per sample, etc
   });
-
-  if (cursorTs !== null) {
-    params.set("after", cursorTs.toString());
-  }
 
   fetch(`/api/history?${params}`)
     .then(res => {
@@ -168,7 +175,7 @@ function fetchHistoryStep() {
         appendRows(payload.rows);
         chart.update("none");
 
-        cursorTs = payload.rows[payload.rows.length - 1].ts;
+        cursorTs = Date.parse(payload.rows[payload.rows.length - 1].timestamp);
         trimWindow();
 
         loading = false;

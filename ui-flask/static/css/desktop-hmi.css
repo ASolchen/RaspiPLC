@@ -1,0 +1,236 @@
+/* =========================
+   Global Reset & Defaults
+   ========================= */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* =========================
+   Root Layout
+   ========================= */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;           /* kiosk-safe */
+}
+
+/* App wrapper */
+#app {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;              /* CRITICAL */
+}
+
+/* =========================
+   Header
+   ========================= */
+header {
+    flex: 0 0 auto;
+    height: 20px;
+    background: linear-gradient(#1f4fa3, #163b7a);
+    color: white;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    border-bottom: 3px solid #999;
+}
+
+header .title {
+    margin-left: auto;
+    font-weight: bold;
+    font-size: 12px;
+}
+
+#comms {
+    margin-left: auto;
+    font-weight: bold;
+}
+
+/* =========================
+   Main Content Area
+   ========================= */
+main {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;              /* CRITICAL */
+    padding: 16px;
+    background-color: #f2f2f2;
+}
+
+/* =========================
+   Cards / Panels
+   ========================= */
+.card {
+    flex: 1 1 auto;
+    font-size: 24px;
+    background-color: white;
+    border: 2px solid #999;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.card h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid #ccc;
+}
+
+/* =========================
+   Chart Container
+   ========================= */
+#chart-container {
+    flex: 1 1 auto;
+    min-height: 0;              /* CRITICAL for canvas */
+    background-color: #000;
+    padding: 10px;
+}
+
+/* Chart element (Chart.js / canvas / SVG) */
+#chart-container canvas,
+#chart-container svg,
+#tempChart {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+
+/* =========================
+   Footer
+   ========================= */
+footer {
+    flex: 0 0 auto;
+    height: 60px;
+    background-color: #c0c0c0;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    border-top: 2px solid #999;
+}
+
+/* Footer buttons */
+footer a {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 6px 14px;
+
+    background: linear-gradient(#f5f5f5, #cfcfcf);
+    border: 2px solid #888;
+    border-radius: 4px;
+
+    color: #000;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 14px;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.8),
+        0 1px 1px rgba(0,0,0,0.2);
+
+    user-select: none;
+}
+
+/* =========================
+   Status Grid
+   ========================= */
+.status-grid {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.status-grid p {
+    width: 33%;
+    font-weight: bold;
+    text-align: center;
+    border: 2px solid #888;
+    padding: 8px;
+    background-color: #f8f8f8;
+    border-radius: 4px;
+}
+
+/* =========================
+   HMI Controls
+   ========================= */
+.hmi-button {
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.hmi-dropdown {
+    border-radius: 8px;
+    background-color: white;
+    padding: 10px 0px;
+    font-size: 32px;
+    font-weight: bold;
+}
+
+.hmi-indicator {
+    border: 1px solid #999;
+    padding: 6px;
+}
+
+/* =========================
+   Mode Buttons
+   ========================= */
+.mode-group {
+    display: flex;
+    gap: 8px;
+}
+
+.mode-btn {
+    padding: 14px 18px;
+    font-size: 0.8em;
+    border-radius: 6px;
+    border: 2px solid #525252;
+    background: #aeaeae;
+    color: #000000;
+}
+
+.mode-btn.active {
+    background: #1e90ff;
+    border-color: #000000;
+    color: rgb(0, 0, 0);
+    font-weight: bold;
+}
+
+/* =========================
+   Temperature Setpoint
+   ========================= */
+.tc-setpoint {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.tc-setpoint label {
+    font-size: 1.1em;
+    min-width: 120px;
+}
+
+.tc-setpoint input {
+    width: 120px;
+    font-size: 1.3em;
+    padding: 6px;
+    text-align: center;
+}
+
+.tc-setpoint button {
+    font-size: 1.1em;
+    padding: 8px 16px;
+    border-radius: 6px;
+    background: #1e90ff;
+    border-color: #000000;
+    color: rgb(0, 0, 0);
+    font-weight: bold;
+}

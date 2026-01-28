@@ -1,0 +1,61 @@
+{% extends "layouts/desktop_hmi.html" %}
+
+{% block title %}Poor-manView 1000{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div>
+    <h3>Temp Controller</h3>
+        <div class="mode-group">
+            <button class="mode-btn" data-mode="0">Off</button>
+            <button class="mode-btn" data-mode="1">Oper Manual</button>
+            <button class="mode-btn" data-mode="2">Oper Auto</button>
+            <button class="mode-btn" data-mode="3">Pgm Auto</button>
+        </div>
+        Mode: <span id="tc-mode">--</span><br>
+        CtrlMode: <span id="tc-ctrlmode">--</span>
+        </div>
+        <div class="tc-setpoint">
+        <label for="tc-sp">Setpoint (°F)</label>
+        <input
+            id="tc-sp"
+            type="number"
+            min="0"
+            max="500"
+            step="1"
+            inputmode="numeric"
+        />
+        <button id="tc-sp-send">SET</button>
+        </div>
+
+        <div>
+    <h3>PID</h3>
+        PV: <span id="pid-pv">--</span><br>
+        CV: <span id="pid-cv">--</span>
+    </div>
+</div>
+
+<div class="card">
+    <!-- Momentary enable -->
+    
+    
+    <br><br>
+    <label for="mode">Mode:</label>
+    <select class="hmi-dropdown" id="mode" name="mode">
+    <option value="1">Meat Sticks 🥩</option>
+    <option value="2">Bacon 🥓</option>
+    <option value="3">Sausage🌭</option>
+    </select>
+
+    <!-- Numeric write -->
+    <label for="heater-setpoint">Heater %</label>
+    <input id="heater-setpoint" type="number" min="0" max="100" step="1" value="50" style="font-size:18px; width:100px;">
+
+    <button class="hmi-button" onclick="writeHeaterPct()">Write</button>
+</div>
+
+{% endblock %}
+
+{% block tag_bindings %}
+<script src="/static/js/pages/index.js"></script>
+{% endblock %}

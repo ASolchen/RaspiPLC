@@ -1,0 +1,29 @@
+{% extends "base/base_tag_subscriber.html" %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/desktop-hmi.css') }}">
+{% endblock %}
+
+{% block body %}
+<div id="app">
+        <header>
+            <div class="title">Poor-manView 1000</div>
+        </header>
+
+            {% block content %}{% endblock %}
+
+
+        <footer>
+            <a href="/">Status</a>
+            <a href="/temp-chart?span=4320">3 Day Trend</a>
+            <a href="/temp-chart?span=1440">1 Day Trend</a>
+            <a href="/temp-chart?span=60">1 Hr Trend</a>
+            <a href="/temp-chart?span=5">5 Min Trend</a>
+            <a href="/maintenance">Maintenance</a>
+            <span id="comms">●</span>
+        </footer>
+</div>
+{{ super() }}
+{% endblock %}
+

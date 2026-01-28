@@ -6,3 +6,4 @@ eventlet==0.35.2
 pyserial
 questdb
 requests
+user-agents

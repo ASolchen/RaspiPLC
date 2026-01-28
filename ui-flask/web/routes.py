@@ -1,6 +1,9 @@
 from flask import render_template, request, jsonify
 import time
 import logging
+from flask import request, render_template
+from user_agents import parse
+
 log = logging.getLogger(__name__)
 
 from tags.historian import get_historian
@@ -14,11 +17,20 @@ def register_routes(app):
 
     @app.route("/")
     def index():
-        return render_template("pages/index.html")
+        ua = parse(request.headers.get("User-Agent", ""))
+        platform = (request.user_agent.platform or "").lower()
+        if "arm" in platform:
+            return render_template("pages/index.html")
+        return render_template("pages/index_desktop.html")
 
     @app.route("/temp-chart")
     def temp_chart():
-        return render_template("pages/temp_chart.html")
+        
+        ua = parse(request.headers.get("User-Agent", ""))
+        platform = (request.user_agent.platform or "").lower()
+        if "arm" in platform:
+            return render_template("pages/temp_chart.html")
+        return render_template("pages/temp_chart_desktop.html")
 
     @app.route("/maintenance")
     def maintenance():

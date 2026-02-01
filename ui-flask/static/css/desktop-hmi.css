@@ -68,7 +68,7 @@ main {
 /* =========================
    Cards / Panels
    ========================= */
-.card {
+.card { 
     flex: 1 1 auto;
     font-size: 24px;
     background-color: white;

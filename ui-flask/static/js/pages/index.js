@@ -2,25 +2,25 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   UIWidgets.init({
-    "#smoker-temp": {
+    "#pid-pv": {
       widget: "label",
-      tag: "smoker.temp",
+      tag: "tic1.pid.pv",
       format: "fixed",
       precision: 1,
       unit: "°F"
     },
 
-    "#meat-temp": {
+    "#tc-ctrlmode": {
       widget: "label",
-      tag: "meat.temp",
+      tag: "tic1.tc.ctrlmode",
       format: "fixed",
       precision: 1,
       unit: "°F"
     },
 
-    "#heater-pct": {
+    "#pid-cv": {
       widget: "label",
-      tag: "heater.1.pct",
+      tag: "tic1.pid.cv",
       format: "fixed",
       precision: 0,
       unit: "%"
